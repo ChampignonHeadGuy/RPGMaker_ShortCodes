@@ -1,0 +1,196 @@
+#==============================================================================
+# ** Game_Teleports
+#------------------------------------------------------------------------------
+#  This class handles teleport parameters. I t's a wrapper for the 
+#  built-in class "Array". Refer to "$teleports" for the instance 
+#  of this class.
+#------------------------------------------------------------------------------
+#  Push any array with parameters(id, x, y, direction) to save like slot.
+#    method : $teleports[index] = [1, 9, 7, 0]
+#    Use active[true] to start teleport process.
+#==============================================================================
+
+class Game_Teleports
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables
+  #--------------------------------------------------------------------------
+  attr_reader   :active           # active teleport flag
+  attr_reader   :map_index        # map index to teleport
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    @data = []
+    @active = false
+    @map_index = 0
+  end
+  #--------------------------------------------------------------------------
+  # * Active Teleport Flag
+  #--------------------------------------------------------------------------
+  def active=active
+    active != true ? @active = false : @active = true
+  end
+  #--------------------------------------------------------------------------
+  # * Set Teleport Destination Index
+  #--------------------------------------------------------------------------
+  def map_index=index
+    if index.is_a?(Numeric) and index.between?(0, 100)
+      @map_index = index.to_i
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Get Data Size
+  #--------------------------------------------------------------------------
+  def size
+    return @data.size
+  end
+  #--------------------------------------------------------------------------
+  # * Get Data Length
+  #--------------------------------------------------------------------------
+  def length
+    return @data.length
+  end
+  #--------------------------------------------------------------------------
+  # * Clear (erase all elements of data)
+  #--------------------------------------------------------------------------
+  def clear
+    @data.clear
+  end
+  #--------------------------------------------------------------------------
+  # * Name (get name by map_index)
+  #--------------------------------------------------------------------------
+  def name
+    if @data[@map_index] != nil
+      return @data[@map_index].name
+    end
+    return ""
+  end
+  #--------------------------------------------------------------------------
+  # * Get Teleport
+  #     teleport_id : teleport ID
+  #--------------------------------------------------------------------------
+  def [](teleport_id)
+    if teleport_id < 0 or teleport_id > 100
+      return nil
+    end
+    if @data[teleport_id] == nil
+      @data[teleport_id] = Teleport_data.new
+    end
+    return @data[teleport_id]
+  end
+  #--------------------------------------------------------------------------
+  # * Set Teleport
+  #     teleport_id : teleport ID
+  #     array       : the teleport's array(id, x, y, direction)
+  #--------------------------------------------------------------------------
+  def []=(teleport_id, array)
+    return if not teleport_id.between(0, 100)
+    if teleport_id <= 100 and @data[teleport_id] == nil
+      @data[teleport_id] = Teleport_data.new
+    end
+    if array.is_a?(Array) and @data[teleport_id] != nil
+      @data[teleport_id].setup(array[0], array[1], array[2], array[3])
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Refresh (one of teleport ids)
+  #     teleport_id : teleport ID
+  #--------------------------------------------------------------------------
+  def flush_one(teleport_id)
+    if teleport_id <= 100 and @data[teleport_id] != nil
+      @data[teleport_id].setup(0, 0, 0, 0)
+    end
+  end
+end
+
+#==============================================================================
+# ** Teleport_data
+#------------------------------------------------------------------------------
+#  This class perform to memorize teleport data. It's used within the 
+#  Game_Teleports class ($teleports).
+#==============================================================================
+
+class Teleport_data
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables
+  #--------------------------------------------------------------------------
+  attr_reader   :id               # map id
+  attr_reader   :x                # x coordinate
+  attr_reader   :y                # y coordinate
+  attr_reader   :dir              # initial direction
+  attr_reader   :name             # map name
+  attr_reader   :trans_name       # graphics transition
+  attr_reader   :trans_time       # transition time
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    @id = 0
+    @x = 0
+    @y = 0
+    @dir = 0
+    @name = ""
+    @trans_name = ""
+    @trans_time = 0
+  end
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def setup(id, x, y, dir)
+    id.is_a?(Numeric)  ? @id = id   : nil
+    x.is_a?(Numeric)   ? @x = x     : nil
+    y.is_a?(Numeric)   ? @y = y     : nil
+    dir.is_a?(Numeric) ? @dir = dir : nil
+    @name = ""
+    temp1 = load_data(sprintf("Data/Map%03d.rxdata", id))
+    temp2 = load_data("Data/MapInfos.rxdata")[id]
+    @name = temp2.name if temp2 != nil
+    @x %= temp1.width  if temp1 != nil
+    @y %= temp1.height if temp1 != nil
+    @x.abs ; @x.to_i
+    @y.abs ; @y.to_i
+  end
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def default_transition
+    @trans_name = $game_temp.transition_name
+    @trans_time = 0
+  end
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def transition(name, time)
+    @trans_name = name
+    @trans_time = time
+  end
+  #--------------------------------------------------------------------------
+  # * Start place (it $teleport[ID] memorize start game map)
+  #--------------------------------------------------------------------------
+  def start_place
+    @id = $data_system.start_map_id
+    @x = $data_system.start_x
+    @y = $data_system.start_y
+    @dir = 0
+    temp = load_data("Data/MapInfos.rxdata")[@id]
+    @name = temp != nil ? temp.name : ""
+  end
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def set_coordinates(x, y)
+    x.is_a?(Numeric) ? @x = x : nil
+    y.is_a?(Numeric) ? @y = y : nil
+    @x %= 256 ; @x.abs ; @x.to_i
+    @y %= 256 ; @y.abs ; @y.to_i
+  end
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def set_id(id)
+    id.is_a?(Numeric) ? @id = id : nil
+    @name = ""
+    temp = load_data("Data/MapInfos.rxdata")[id]
+    @name = temp.name if temp != nil
+  end
+end

@@ -1,0 +1,778 @@
+#==============================================================================
+# ** Game_MessageText
+#------------------------------------------------------------------------------
+#  This class perfoms to draw message texts. Refer to "$game_texts" 
+#  for the instance of this class.
+#==============================================================================
+
+class Game_MessageText
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables
+  #--------------------------------------------------------------------------
+  attr_reader   :color_type               # text colors (random or rainbow)
+  attr_reader   :fix                      # fix all parameters
+  attr_accessor :lock                     # auto skip lock flag
+  attr_accessor :automatic                # auto skip to next text
+  attr_accessor :criptographic            # make criptograms
+  attr_accessor :restore_font             # restore text parameter: fontname
+  attr_accessor :restore_size             # restore text parameter: fontsize
+  attr_accessor :restore_type             # restore text parameter: bold/italic
+  attr_reader   :criptogram               # numeric swap letters
+  attr_reader   :resize                   # fix text if out of window
+  attr_reader   :progress                 # next text wait flag
+  attr_reader   :beep_se                  # beep filename sound
+  attr_reader   :wait_write               # wait count to next letter
+  attr_reader   :wait_beeps               # beep while write
+  attr_reader   :wait_max                 # max auto wait time
+  attr_accessor :wait_count               # auto wait time 
+  attr_accessor :pulse                    # pulse letters
+  attr_accessor :ocillate                 # shift letters size
+  attr_accessor :space                    # add space to letters
+  attr_accessor :beep                     # beep while write
+  attr_accessor :writting                 # write letter by letter
+  attr_accessor :rainbow_color            # rainbow gradient
+  attr_accessor :rainbow_phase            # rainbow color phases
+  attr_accessor :random_color             # random gradient
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    @fix = true
+    @lock = false
+    @restore_font = false
+    @restore_size = false
+    @restore_type = true
+    @automatic = false
+    @beep = true
+    @writting = true
+    @progress = false
+    @wait_count = 20
+    @wait_max = 20
+    @wait_write = 0
+    @wait_beeps = 0
+    @beep_name = "Beep_00"
+    @beep_volume = 70
+    @beep_pitch = 100
+    @beep_se = RPG::AudioFile.new("Beep_00", 60, 100)
+    #===========================================================================
+    # Make sounds filenames
+    @beep_list = []
+    @beep_list2 = []
+    @sound_list = []
+    @sound_list2 = []
+    for id in 0..99
+      @beep_list.push(sprintf("Beeps/Beep_%02d", id))
+      @sound_list.push(sprintf("Message_Sounds/Sound_%02d", id))
+      @beep_list2.push(sprintf("Beep_%02d", id))
+      @sound_list2.push(sprintf("Sound_%02d", id))
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Get Sound Effect List
+  #--------------------------------------------------------------------------
+  def sound_list      # Inside of folder "Message_Sounds"
+    return @sound_list
+  end
+  def sound_list2     # Outside of folder "Message_Sounds"
+    return @sound_list2
+  end
+  #--------------------------------------------------------------------------
+  # * Get Beep Sound List
+  #--------------------------------------------------------------------------
+  def beep_list      # Inside of folder "Beeps"
+    return @beep_list
+  end
+  def beep_list2     # Outside of folder "Beeps"
+    return @beep_list2
+  end
+  #--------------------------------------------------------------------------
+  # * Set Text Progression (used on Window_Message.write_methods)
+  #     choice : wait for next text (flag)
+  #--------------------------------------------------------------------------
+  def progress=(choice)
+    @progress = choice
+    @progress != true ? @progress = false : nil
+  end
+  #--------------------------------------------------------------------------
+  # * Wait times of write and beeps
+  #     value1 : time for write
+  #     value2 : time for beep
+  #--------------------------------------------------------------------------
+  def wait_delays(value1=nil, value2=nil)
+    value1 != nil ? @wait_write = value1 : nil
+    value2 != nil ? @wait_beeps = value2 : nil
+  end
+  #--------------------------------------------------------------------------
+  # * Automatic texts and lock
+  #     value : lock flag
+  #--------------------------------------------------------------------------
+  def auto_lock=(value)
+    @automatic = value
+    @lock = value
+  end
+  #--------------------------------------------------------------------------
+  # * Wait time for auto skip texts
+  #     value : time for skip
+  #--------------------------------------------------------------------------
+  def wait_auto(value)
+    @wait_count = value
+    @wait_max = value
+    @automatic = false
+    if @wait_max.is_a?(Numeric) and @wait_max > 0
+      @automatic = true
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Return to initial time of auto skip texts
+  #--------------------------------------------------------------------------
+  def return_autotext
+    @wait_count = @wait_max
+  end
+  #--------------------------------------------------------------------------
+  # * Change Beep Spund
+  #     name   : sound name
+  #     volume : sound volume
+  #     pitch  : sound pitch
+  #--------------------------------------------------------------------------
+  def change_beep(name, volume = 60, pitch = 100)
+    @beep_se = RPG::AudioFile.new(name, volume, pitch)
+  end
+  #--------------------------------------------------------------------------
+  # * Change writting beep parameters
+  #     write     : write text automatic or not
+  #     beep      : beep while write text or not
+  #     se_delay  : beep sound delay
+  #     wr_delay  : write text delay
+  #     beep_name : beep sound (filename, volume, pitch)
+  #--------------------------------------------------------------------------
+  def write_change(write, beep, wr_delay, se_delay, sound)
+    @wait_write = wr_delay
+    @wait_beeps = se_delay
+    @beep       = beep
+    @writting   = write
+    @beep_se    = sound
+    @beep_name  = sound.name
+  end
+  #--------------------------------------------------------------------------
+  # * Play Beeps (While write text)
+  #--------------------------------------------------------------------------
+  def play_beeps
+    if @beep_se != nil and @beep_se.name != ""
+      beep = @beep_se
+      Audio.se_play("Audio/SE/"+beep.name, beep.volume, beep.pitch)
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update (only on Window_Message)
+  #--------------------------------------------------------------------------
+  def update
+    #-------------------------------------------------
+    # Fix time variables
+    @wait_count.is_a?(Numeric) ? nil : @wait_count = 0
+    @wait_max.is_a?(Numeric)   ? nil : @wait_max   = 0
+    @wait_write.is_a?(Numeric) ? nil : @wait_write = 0
+    @wait_beeps.is_a?(Numeric) ? nil : @wait_beeps = 0
+    # Always unlock if not automatic text
+    @automatic != true ? @automatic = false : nil
+    @progress  != true ? @progress  = false : nil
+    @lock      != true ? @lock      = false : nil
+    @automatic != true ? @lock      = false : nil
+    #-------------------------------------------------
+    # Fix absolute of beep sound (volume and pitch)
+    @beep_se.volume = @beep_se.volume.abs
+    @beep_se.pitch = @beep_se.pitch.abs
+    #-------------------------------------------------
+    # Fix max and min of variables
+    @wait_max   = [[@wait_max.to_i,   0].max, 999].min
+    @wait_count = [[@wait_count.to_i, 0].max, 999].min
+    @wait_write = [[@wait_write.to_i, 0].max,  20].min
+    @wait_beeps = [[@wait_beeps.to_i, 0].max,  10].min
+    if @progress == true and @wait_count > 0
+      @wait_count -= 1 
+    end
+  end
+end
+
+#==============================================================================
+# ** Window_Message (part 1) (Main)
+#------------------------------------------------------------------------------
+#  This message window is used to display text.
+#==============================================================================
+
+class Window_Message < Window_Selectable
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    super(80, 304, 480, 160)
+    self.contents = Bitmap.new(width - 32, height - 32)
+    self.visible = false
+    self.z = 9998
+    if $game_texts == nil
+      $game_texts = Game_MessageText.new
+    end
+    @fade_in = false
+    @fade_out = false
+    @contents_showing = false
+    @cursor_width = 0
+    @xc = @yc = 0
+    @text = nil
+    @text_char = nil
+    @text_code = false
+    @progress_text = true
+    self.active = false
+    self.index = -1
+    self.contents.font.bold = false
+    self.contents.font.italic = false
+    @default_size = self.contents.font.size
+    @default_name = self.contents.font.name
+  end
+  #--------------------------------------------------------------------------
+  # * Dispose
+  #--------------------------------------------------------------------------
+  def dispose
+    terminate_message
+    $game_temp.message_window_showing = false
+    if @input_number_window != nil
+      @input_number_window.dispose
+    end
+    super
+  end
+  #--------------------------------------------------------------------------
+  # * Terminate Message
+  #--------------------------------------------------------------------------
+  def terminate_message
+    self.active = false
+    self.pause = false
+    self.index = -1
+    self.contents.clear
+    # Clear showing flag
+    @contents_showing = false
+    # Call message callback
+    if $game_temp.message_proc != nil
+      $game_temp.message_proc.call
+    end
+    #------------------------------------------------------------------------
+    # Clear variables related to text, choices, and number input
+    $game_temp.message_text = nil
+    $game_temp.message_proc = nil
+    $game_temp.choice_start = 99
+    $game_temp.choice_max = 0
+    $game_temp.choice_cancel_type = 0
+    $game_temp.choice_proc = nil
+    $game_temp.num_input_start = 99
+    $game_temp.num_input_variable_id = 0
+    $game_temp.num_input_digits_max = 0
+    @text_char = nil
+    @text = nil
+    #------------------------------------------------------------------------
+    # Close gold window
+    if @gold_window != nil
+      @gold_window.dispose
+      @gold_window = nil
+    end
+    #------------------------------------------------------------------------
+    # Restore text by type ( bolder and italic )
+    if $game_texts.restore_type == true
+      self.contents.font.bold = false
+      self.contents.font.italic = false
+    end
+    # Restore text by font name
+    if $game_texts.restore_font == true
+      self.contents.font.name = @default_name
+    end
+    # Restore text by font size
+    if $game_texts.restore_size == true
+      self.contents.font.size = @default_size
+    end
+  end
+end
+
+#==============================================================================
+# ** Window_Message (part 2) (Text codes)
+#------------------------------------------------------------------------------
+#  This message window is used to display text.
+#==============================================================================
+
+class Window_Message < Window_Selectable
+  #--------------------------------------------------------------------------
+  # * Refresh
+  #--------------------------------------------------------------------------
+  def refresh
+    self.contents.clear
+    self.contents.font.color = normal_color
+    # Clear Progressive text flag (can't skip while write full text)
+    @progress_text = false
+    $game_texts.progress = false
+    x = y = 0
+    @xc = @yc = 0
+    @cursor_width = 0
+    # Indent if choice
+    if $game_temp.choice_start == 0
+      x = 8
+      @xc = 8
+    end
+    #-------------------------------------------------------------------------
+    # If waiting for a message to be displayed
+    if $game_temp.message_text != nil
+      text = $game_temp.message_text
+      #-------------------------------------------------------------------------
+      # Control text processing
+      begin
+        last_text = text.clone
+        # Change "\\[Vv]" to value of current variable ( Original Script )
+        text.gsub!(/\\[Vv]\[([0-9]+)\]/) do
+          $game_variables[$1.to_i] != nil ? 
+          $game_variables[$1.to_i] : ""
+        end
+      end until text == last_text
+      #-------------------------------------------------------------------------
+      # Change "\\[Nn]" to actor name
+      text.gsub!(/\\[Nn]\[([0-9]+)\]/) do
+        $game_actors[$1.to_i] != nil ? 
+        $game_actors[$1.to_i].name : ""
+      end
+      #-------------------------------------------------------------------------
+      # Change "\\[N&]" to actor name in party
+      text.gsub!(/\\[Nn][&]\[([0-9]+)\]/) do
+        $game_party.actors[$1.to_i] != nil ? 
+        $game_party.actors[$1.to_i].name : ""
+      end
+      #-------------------------------------------------------------------------
+      # Change "\\\\" to "\000" for convenience
+      text.gsub!(/\\\\/) { "\000" }
+      # Change "\\C" to "\001" and "\\G" to "\002"
+      text.gsub!(/\\[Cc]\[([0-9]+)\]/) { "\001[#{$1}]" }
+      text.gsub!(/\\[Gg]/) { "\002" }
+      #-------------------------------------------------------------------------
+      # Change "\\Bd" to write text bold
+      text.gsub!(/\\[Bb]/) { "\003" }
+      # Change "\\It" to write text italic
+      text.gsub!(/\\[Ii]/) { "\004" }
+      # Change "\\R" to write normal
+      text.gsub!(/\\[Rr]/) { "\005" }
+      #-------------------------------------------------------------------------
+      # Change "\\WL" to change write speed (letters)
+      text.gsub!(/\\[Ww][Ll]\[([0-9]+)\]/) { "\006[#{$1}]" }
+      # Change "\\WB" to change write beep period (Beeps)
+      text.gsub!(/\\[Ww][Bb]\[([0-9]+)\]/) { "\007[#{$1}]" }
+      #-------------------------------------------------------------------------
+      # Change "\\Wait[]" to timed messages
+      text.gsub!(/\\[Ww][Aa][Ii][Tt]\[([0-9]+)\]/) do
+        $game_texts.wait_auto([1, [999, $1.to_i].min].max)
+        $game_texts.automatic = true
+        entity = ""
+      end
+      #-------------------------------------------------------------------------
+      # Change "\\Wait" to default timed messages: time is 40
+      text.gsub!(/\\[Ww][Aa][Ii][Tt]/) do
+        $game_texts.wait_auto(40)
+        $game_texts.automatic = true
+        entity = ""
+      end
+      #-------------------------------------------------------------------------
+      # Change "\\Wout" to stop timed messages
+      text.gsub!(/\\[Ww][Oo][Uu][Tt]/) do
+        $game_texts.wait_auto(0)
+        $game_texts.automatic = false
+        entity = ""
+      end
+      #-------------------------------------------------------------------------
+      # Memorize message text to write
+      @text_char = @text = text
+    end
+  end
+end
+
+#==============================================================================
+# ** Window_Message (part 3) (Writting text codes and performs)
+#------------------------------------------------------------------------------
+#  This message window is used to display text.
+#==============================================================================
+
+class Window_Message < Window_Selectable
+  #--------------------------------------------------------------------------
+  # * Write Current Text (Automatic or letter by letter)
+  #     text : message text
+  #     c    : text character
+  #     x    : x character position
+  #     y    : y character position
+  #--------------------------------------------------------------------------
+  def write_current_text(text, c, x, y)
+    # If waiting for a message to be displayed
+    if $game_temp.message_text != nil
+      # Clear text code
+      @text_code = false
+      # Branch by text code {\{Characters}[$1]}
+      case c
+      #----------------------------------------------------------------------
+      # If \\
+      when "\000"
+        # Return to original text
+        c = "\\"
+        @text_code = true
+      #----------------------------------------------------------------------
+      # If \C[n]
+      when "\001"
+        # Change text color
+        text.sub!(/\[([0-9]+)\]/, "")
+        color = $1.to_i
+        if color.between?(0, 7)
+          self.contents.font.color = text_color(color)
+        end
+        @text_code = true
+      #----------------------------------------------------------------------
+      # If \G
+      when "\002"
+        # Make gold window
+        if @gold_window == nil
+          @gold_window = Window_Gold.new
+          @gold_window.x = 560 - @gold_window.width
+          if $game_temp.in_battle
+            @gold_window.y = 192
+          else
+            @gold_window.y = self.y >= 128 ? 32 : 384
+          end
+          @gold_window.opacity = self.opacity
+          @gold_window.back_opacity = self.back_opacity
+        end
+        @text_code = true
+      #-----------------------------------------------------------------------
+      # If \B: Bolders texts
+      when "\003"
+        # Write text with bolder face
+        self.contents.font.bold = !self.contents.font.bold
+        @text_code = true
+      #-----------------------------------------------------------------------
+      # If \I: Italic texts
+      when "\004"
+        # Write text with italic face
+        self.contents.font.italic = !self.contents.font.italic
+        @text_code = true
+      #-----------------------------------------------------------------------
+      # If \R: Restore text
+      when "\005"
+        # Write text with normal settings
+        self.contents.font.bold = false
+        self.contents.font.italic = false
+        $game_texts.restore_font = true
+        $game_texts.restore_size = true
+        $game_texts.restore_type = true
+        @text_code = true
+      #-----------------------------------------------------------------------
+      # If \WL[n]: Write text letter by letter
+      when "\006"
+        text.sub!(/\[([0-9]+)\]/, "")
+        # Make delay time to write text
+        $game_texts.wait_delays($1.to_i, nil)
+        @text_code = true
+      #-----------------------------------------------------------------------
+      # If \WB[n]: Write text letter by letter
+      when "\007"
+        text.sub!(/\[([0-9]+)\]/, "")
+        # Make delay time to beep text
+        $game_texts.wait_delays(nil, $1.to_i)
+        @text_code = true
+      end
+      #----------------------------------------------------------------------
+      # If new line text
+      if c == "\n"
+        # Update cursor width if choice
+        if y >= $game_temp.choice_start
+          @cursor_width = [@cursor_width, x].max
+        end
+        # Add 1 to y
+        y += 1
+        x = 0
+        # Indent if choice
+        if y >= $game_temp.choice_start
+          x = 8
+        end
+      end
+      # Draw text
+      self.contents.draw_text(4 + x, 32 * y, 40, 32, c)
+      # Add x to drawn text width
+      x += self.contents.text_size(c).width
+    end
+    @xc = x
+    @yc = y
+    #-------------------------------------------------------------------------
+    # If choice
+    if $game_temp.choice_max > 0
+      @item_max = $game_temp.choice_max
+      self.active = true
+      self.index = 0
+    end
+    #-------------------------------------------------------------------------
+    # If number input
+    if $game_temp.num_input_variable_id > 0
+      digits_max = $game_temp.num_input_digits_max
+      number = $game_variables[$game_temp.num_input_variable_id]
+      @input_number_window = Window_InputNumber.new(digits_max)
+      @input_number_window.number = number
+      @input_number_window.x = self.x + 8
+      @input_number_window.y = self.y + $game_temp.num_input_start * 32
+    end
+  end
+end
+
+#==============================================================================
+# ** Window_Message (part 4) (Writting methods and text updates)
+#------------------------------------------------------------------------------
+#  This message window is used to display text.
+#==============================================================================
+
+class Window_Message < Window_Selectable
+  #--------------------------------------------------------------------------
+  # * Set Window Position and Opacity Level
+  #--------------------------------------------------------------------------
+  def reset_window
+    if $game_temp.in_battle
+      self.y = 16
+    else
+      case $game_system.message_position
+      when 0  # up
+        self.y = 16
+      when 1  # middle
+        self.y = 160
+      when 2  # down
+        self.y = 304
+      end
+    end
+    if $game_system.message_frame == 0
+      self.opacity = 255
+    else
+      self.opacity = 0
+    end
+    self.back_opacity = 160
+  end
+  #--------------------------------------------------------------------------
+  # * Write methods (automatic text or writting letter by letter)
+  #--------------------------------------------------------------------------
+  def write_methods
+    # If $game_texts.writting is true: write letter-by-letter mode
+    if $game_texts.writting == true
+      @progress_text = false
+      #----------------------------------------------------------------------
+      # If C button was pressed: draw all text automaticly
+      if Input.trigger?(Input::C) 
+        if $game_texts.lock != true
+          while ((@text_char = @text.slice!(/./m)) != nil)
+            write_current_text(@text, @text_char, @xc, @yc)
+          end
+          # Active next text progress flag
+          @progress_text = true
+          $game_texts.progress = true
+          return
+        end
+      end
+      #----------------------------------------------------------------------
+      # Set contents opacities and write delays
+      self.contents_opacity = 255
+      @fade_in = false
+      if @input_number_window != nil
+        @input_number_window.contents_opacity = 255
+      end
+      delay1 = $game_texts.wait_write.to_i
+      delay2 = $game_texts.wait_beeps.to_i
+      delay3 = (delay1 + delay2)
+      #----------------------------------------------------------------------
+      # Write one character per delays
+      if delay1 > 1
+        # Write with delay
+        if Graphics.frame_count % delay1 == 0
+          if ((@text_char = @text.slice!(/./m)) != nil)
+            write_current_text(@text, @text_char, @xc, @yc)
+          end
+        end
+      else
+        # Write quickly without delay (updated per frame)
+        if ((@text_char = @text.slice!(/./m)) != nil)
+          write_current_text(@text, @text_char, @xc, @yc)
+        end
+      end
+      # Write quickly if B button was pressed
+      if Input.press?(Input::B)
+        if ((@text_char = @text.slice!(/./m)) != nil)
+          write_current_text(@text, @text_char, @xc, @yc)
+        end
+      end
+      #----------------------------------------------------------------------
+      # While write, play beeps
+      if $game_texts.beep == true and $game_texts.beep_se.name != ""
+        if delay3 > 1
+          # Write with delay
+          if Graphics.frame_count % delay3 == 0
+            if (@text_char != " " and @text_code == false)
+              $game_texts.play_beeps
+            end
+          end
+        else
+          # Write quickly without delay (updated per frame)
+          if (@text_char != " " and @text_code == false)
+            $game_texts.play_beeps
+          end
+        end
+        # Write quickly if B button was pressed
+        if Input.press?(Input::B)
+          if (@text_char != " " and @text_code == false)
+            $game_texts.play_beeps
+          end
+        end
+      end
+      #----------------------------------------------------------------------
+      # When no more draw text
+      if @text == nil or @text_char == nil
+        # Active next text progress flags
+        @progress_text = true
+        $game_texts.progress = true
+        return
+      end
+    #------------------------------------------------------------------------
+    # If $game_texts.writting isn't true: 
+    # write automatic mode (no delay and auto full text)
+    else
+      if @text != nil and @text_char != nil
+        while ((@text_char = @text.slice!(/./m)) != nil)
+          write_current_text(@text, @text_char, @xc, @yc)
+        end
+        # Active next text progress flags
+        @progress_text = true
+        $game_texts.progress = true
+        return
+      end
+    end
+    $game_texts.progress = @progress_text
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update
+    super
+    $game_texts.update
+    if @progress_text != true
+      write_methods
+      return
+    end
+    #-------------------------------------------------------------------------
+    # If fade in
+    if @fade_in
+      self.contents_opacity += 24
+      if @input_number_window != nil
+        @input_number_window.contents_opacity += 24
+      end
+      if self.contents_opacity == 255
+        @fade_in = false
+      end
+      return
+    end
+    #-------------------------------------------------------------------------
+    # If inputting number
+    if @input_number_window != nil
+      @input_number_window.update
+      # Confirm
+      if Input.trigger?(Input::C)
+        $game_system.se_play($data_system.decision_se)
+        $game_variables[$game_temp.num_input_variable_id] =
+          @input_number_window.number
+        $game_map.need_refresh = true
+        # Dispose of number input window
+        @input_number_window.dispose
+        @input_number_window = nil
+        terminate_message
+      end
+      return
+    end
+    #-------------------------------------------------------------------------
+    # If message is being displayed
+    if @contents_showing
+      #-----------------------------------------------------------------------
+      # If choice isn't being displayed, show pause sign
+      if $game_temp.choice_max == 0
+        self.pause = true
+      end
+      #-----------------------------------------------------------------------
+      # Pressing Shift to Skip messages
+      if Input.press?(Input::SHIFT)
+        if $game_temp.choice_max == 0
+          terminate_message
+        end
+      end
+      #-----------------------------------------------------------------------
+      # Auto Skip messages
+      if $game_texts.automatic == true
+        if $game_temp.choice_max == 0
+          # Pressing "C" or Pressing "B" to Skip messages
+          if Input.trigger?(Input::C) or Input.trigger?(Input::B)
+            if $game_texts.lock != true
+              $game_texts.wait_count = 0
+            end
+          end
+          if $game_texts.wait_count == 0
+            terminate_message
+            # Replace time of messages
+            $game_texts.return_autotext
+          end
+        end
+      end
+      #-----------------------------------------------------------------------
+      # Cancel
+      if Input.trigger?(Input::B)
+        if $game_temp.choice_max > 0 and $game_temp.choice_cancel_type > 0
+          $game_system.se_play($data_system.cancel_se)
+          $game_temp.choice_proc.call($game_temp.choice_cancel_type - 1)
+          terminate_message
+        end
+      end
+      #-----------------------------------------------------------------------
+      # Confirm
+      if Input.trigger?(Input::C)
+        if $game_temp.choice_max > 0
+          $game_system.se_play($data_system.decision_se)
+          $game_temp.choice_proc.call(self.index)
+        end
+        terminate_message
+      end
+      return
+    end
+    #-------------------------------------------------------------------------
+    # If display wait message or choice exists when not fading out
+    if @fade_out == false and $game_temp.message_text != nil
+      @contents_showing = true
+      $game_temp.message_window_showing = true
+      reset_window
+      refresh
+      Graphics.frame_reset
+      self.visible = true
+      self.contents_opacity = 0
+      if @input_number_window != nil
+        @input_number_window.contents_opacity = 0
+      end
+      @fade_in = true
+      return
+    end
+    #-------------------------------------------------------------------------
+    # If message which should be displayed is not shown, but window is visible
+    if self.visible
+      @fade_out = true
+      self.opacity -= 48
+      if self.opacity == 0
+        self.visible = false
+        @fade_out = false
+        $game_temp.message_window_showing = false
+      end
+      return
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Cursor Rectangle Update
+  #--------------------------------------------------------------------------
+  def update_cursor_rect
+    if @index >= 0
+      n = $game_temp.choice_start + @index
+      self.cursor_rect.set(8, n * 32, @cursor_width, 32)
+    else
+      self.cursor_rect.empty
+    end
+  end
+end

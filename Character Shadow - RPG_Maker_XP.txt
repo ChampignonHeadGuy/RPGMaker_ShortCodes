@@ -1,0 +1,304 @@
+#==============================================================================
+# ** Game_Character (part 1)
+#------------------------------------------------------------------------------
+#  This class deals with characters. It's used as a superclass for the
+#  Game_Player and Game_Event classes.
+#==============================================================================
+
+class Game_Character
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables
+  #--------------------------------------------------------------------------
+  attr_accessor :shadow_name              # character shadow file name
+  attr_accessor :shadow_visible           # shadow visible flag
+  attr_accessor :shadow_zoom              # shadow proportional zoom
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  alias add_shadow_variables initialize
+  def initialize
+    add_shadow_variables
+    @shadow_name = ""
+    @shadow_visible = true
+    @shadow_zoom = false
+  end
+  #--------------------------------------------------------------------------
+  # * Make visible shadow
+  #     appear : visible or not visible
+  #--------------------------------------------------------------------------
+  def shadow_appear=(appear)
+    @shadow_visible = appear == true ? true : false
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  alias appear_shadow_of_character
+  def update
+    appear_shadow_of_character
+    # Always deappear shadow if character is transparent
+    if @transparent
+      @shadow_visible = false
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Get Screen Y-Coordinates (For shadow sprite)
+  #--------------------------------------------------------------------------
+  def screen_botton_y
+    # Get screen coordinates from real coordinates and map display position
+    return (@real_y - $game_map.display_y + 3) / 4 + 32
+  end
+end
+
+#==============================================================================
+# ** Sprite_Character
+#------------------------------------------------------------------------------
+#  This sprite is used to display the character.It observes the Game_Character
+#  class and automatically changes sprite conditions.
+#==============================================================================
+
+class Sprite_CharacterShadow < RPG::Sprite
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables
+  #--------------------------------------------------------------------------
+  attr_accessor :character                # character
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #     viewport  : viewport
+  #     character : character (Game_Character)
+  #--------------------------------------------------------------------------
+  def initialize(viewport, character = nil)
+    super(viewport)
+    @character = character
+    @csw = 1
+    update
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update
+    super
+    # If file name is different from current ones
+    if @shadow_name != @character.shadow_name
+      # Remember file name
+      @shadow_name = @character.shadow_name
+      # If file name is empty, create default bitmap shadow
+      if @shadow_name == ""
+        color = Color.new(8, 8, 12, 128)
+        bitmap = Bitmap.new(24, 12)
+        self.bitmap = bitmap
+        # Create arrays with x positions and widths
+        x_array =  [ 7,  4,  2,  1,  0,  0,  0,  0,  1,  2,  4,  7]
+        wt_array = [10, 16, 20, 22, 24, 24, 24, 24, 22, 20, 16, 10]
+        # Draw elipse bitmap shadow
+        for i in 0..11
+          self.bitmap.fill_rect(x_array[i], i, wt_array[i], 1, color)
+        end
+      # Else, create from character shadow file name
+      else
+        self.bitmap = RPG::Cache.character(@character.shadow_name, 0)
+      end
+      self.ox = self.bitmap.width / 2
+      self.oy = self.bitmap.height
+    end
+    # Set visible situation
+    if @character.character_name == "" or @character.bush_depth > 0
+      # Invisible if not draw character sprite
+      self.visible = false
+    else
+      self.visible = @character.shadow_visible
+    end
+    # Set sprite coordinates
+    self.x = @character.screen_x
+    self.y = @character.screen_botton_y
+    self.z = @character.screen_z(self.bitmap.height)
+    # Set opacity level
+    self.opacity = @character.opacity / 1.5
+    if @character.shadow_zoom
+      if @character.character_name != "" and 
+        @character_name != @character.character_name
+        @character_name = @character.character_name
+        temp = Sprite.new
+        temp.bitmap = RPG::Cache.character(@character.character_name, 0)
+        a = temp.bitmap.width / 4
+        b = self.bitmap.width
+        temp.dispose
+        @csw = a.to_f / b.to_f
+      end
+      self.zoom_x = (@character.zoom_x / 100.0) * @csw
+      self.zoom_y = (@character.zoom_y / 100.0) * @csw
+    else
+      self.zoom_x = (@character.zoom_x / 100.0)
+      self.zoom_y = (@character.zoom_y / 100.0)
+    end
+  end
+end
+
+#==============================================================================
+# ** Spriteset_Map
+#------------------------------------------------------------------------------
+#  This class brings together map screen sprites, tilemaps, etc.
+#  It's used within the Scene_Map class.
+#==============================================================================
+
+class Spriteset_Map
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    #------------------------------------------------------------------------
+    # Make viewports
+    @viewport1 = Viewport.new(0, 0, 640, 480)
+    @viewport2 = Viewport.new(0, 0, 640, 480)
+    @viewport3 = Viewport.new(0, 0, 640, 480)
+    @viewport2.z = 200
+    @viewport3.z = 5000
+    #------------------------------------------------------------------------
+    # Make tilemap
+    @tilemap = Tilemap.new(@viewport1)
+    @tilemap.tileset = RPG::Cache.tileset($game_map.tileset_name)
+    for i in 0..6
+      autotile_name = $game_map.autotile_names[i]
+      @tilemap.autotiles[i] = RPG::Cache.autotile(autotile_name)
+    end
+    @tilemap.map_data = $game_map.data
+    @tilemap.priorities = $game_map.priorities
+    #------------------------------------------------------------------------
+    # Make panorama plane
+    @panorama = Plane.new(@viewport1)
+    @panorama.z = -1000
+    #------------------------------------------------------------------------
+    # Make fog plane
+    @fog = Plane.new(@viewport1)
+    @fog.z = 3000
+    #------------------------------------------------------------------------
+    # Make character sprites and character shadow
+    @character_shadow = []
+    @character_sprites = []
+    for i in $game_map.events.keys.sort
+      shadow = Sprite_CharacterShadow.new(@viewport1, $game_map.events[i])
+      @character_shadow.push(shadow)
+      sprite = Sprite_Character.new(@viewport1, $game_map.events[i])
+      @character_sprites.push(sprite)
+    end
+    player_shadow = Sprite_CharacterShadow.new(@viewport1, $game_player)
+    player_sprite = Sprite_Character.new(@viewport1, $game_player)
+    @character_shadow.push(player_shadow)
+    @character_sprites.push(player_sprite)
+    #------------------------------------------------------------------------
+    # Make weather
+    @weather = RPG::Weather.new(@viewport1)
+    # Make picture sprites
+    @picture_sprites = []
+    for i in 1..50
+      @picture_sprites.push(Sprite_Picture.new(@viewport2,
+        $game_screen.pictures[i]))
+    end
+    #------------------------------------------------------------------------
+    # Make timer sprite
+    @timer_sprite = Sprite_Timer.new
+    # Frame update
+    update
+  end
+  #--------------------------------------------------------------------------
+  # * Dispose
+  #--------------------------------------------------------------------------
+  def dispose
+    # Dispose of tilemap
+    @tilemap.tileset.dispose
+    for i in 0..6
+      @tilemap.autotiles[i].dispose
+    end
+    @tilemap.dispose
+    # Dispose of panorama plane
+    @panorama.dispose
+    # Dispose of fog plane
+    @fog.dispose
+    # Dispose of character sprites
+    for sprite in @character_sprites + @character_shadow
+      sprite.dispose
+    end
+    # Dispose of weather
+    @weather.dispose
+    # Dispose of picture sprites
+    for sprite in @picture_sprites
+      sprite.dispose
+    end
+    # Dispose of timer sprite
+    @timer_sprite.dispose
+    # Dispose of viewports
+    @viewport1.dispose
+    @viewport2.dispose
+    @viewport3.dispose
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update
+    # If panorama is different from current one
+    if @panorama_name != $game_map.panorama_name or
+       @panorama_hue != $game_map.panorama_hue
+      @panorama_name = $game_map.panorama_name
+      @panorama_hue = $game_map.panorama_hue
+      if @panorama.bitmap != nil
+        @panorama.bitmap.dispose
+        @panorama.bitmap = nil
+      end
+      if @panorama_name != ""
+        @panorama.bitmap = RPG::Cache.panorama(@panorama_name, @panorama_hue)
+      end
+      Graphics.frame_reset
+    end
+    # If fog is different than current fog
+    if @fog_name != $game_map.fog_name or @fog_hue != $game_map.fog_hue
+      @fog_name = $game_map.fog_name
+      @fog_hue = $game_map.fog_hue
+      if @fog.bitmap != nil
+        @fog.bitmap.dispose
+        @fog.bitmap = nil
+      end
+      if @fog_name != ""
+        @fog.bitmap = RPG::Cache.fog(@fog_name, @fog_hue)
+      end
+      Graphics.frame_reset
+    end
+    # Update tilemap
+    @tilemap.ox = $game_map.display_x / 4
+    @tilemap.oy = $game_map.display_y / 4
+    @tilemap.update
+    # Update panorama plane
+    @panorama.ox = $game_map.display_x / 8
+    @panorama.oy = $game_map.display_y / 8
+    # Update fog plane
+    @fog.zoom_x = $game_map.fog_zoom / 100.0
+    @fog.zoom_y = $game_map.fog_zoom / 100.0
+    @fog.opacity = $game_map.fog_opacity
+    @fog.blend_type = $game_map.fog_blend_type
+    @fog.ox = $game_map.display_x / 4 + $game_map.fog_ox
+    @fog.oy = $game_map.display_y / 4 + $game_map.fog_oy
+    @fog.tone = $game_map.fog_tone
+    # Update character sprites
+    for sprite in (@character_shadow + @character_sprites)
+      sprite.update
+    end
+    # Update weather graphic
+    @weather.type = $game_screen.weather_type
+    @weather.max = $game_screen.weather_max
+    @weather.ox = $game_map.display_x / 4
+    @weather.oy = $game_map.display_y / 4
+    @weather.update
+    # Update picture sprites
+    for sprite in @picture_sprites
+      sprite.update
+    end
+    # Update timer sprite
+    @timer_sprite.update
+    # Set screen color tone and shake position
+    @viewport1.tone = $game_screen.tone
+    @viewport1.ox = $game_screen.shake
+    # Set screen flash color
+    @viewport3.color = $game_screen.flash_color
+    # Update viewports
+    @viewport1.update
+    @viewport3.update
+  end
+end
