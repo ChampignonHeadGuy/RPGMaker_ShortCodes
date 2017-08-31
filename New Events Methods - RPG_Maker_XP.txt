@@ -1,4 +1,23 @@
 #==============================================================================
+# ** Game_Character (part 1)
+#------------------------------------------------------------------------------
+#  This class deals with characters. It's used as a superclass for the
+#  Game_Player and Game_Event classes.
+#==============================================================================
+
+class Game_Character
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  alias add_restorable_variables initialize
+  def initialize
+    add_restorable_variables
+    @restore_character_name = ""
+    @restore_character_hue = 0
+  end
+end
+
+#==============================================================================
 # ** Game_Event
 #------------------------------------------------------------------------------
 #  This class deals with events. It handles functions including event page 
@@ -45,6 +64,7 @@ class Game_Event < Game_Character
       name_number = $1.to_i
       return (name_number == number)
     end
+    # If no exist number to get on substring
     return false
   end
   #--------------------------------------------------------------------------
@@ -93,7 +113,7 @@ class Game_Event < Game_Character
   # * Restore Sprite
   #--------------------------------------------------------------------------
   def restore_sprite
-    # Restore Sprite of first apply
+    # Restore Sprite from first display of last event page
     @character_name = @restore_character_name
     @character_hue = @restore_character_hue
   end
@@ -105,22 +125,16 @@ class Game_Event < Game_Character
   end
   #--------------------------------------------------------------------------
   # * Name
-
   #--------------------------------------------------------------------------
   def name
-
     return @name
-
   end
   #--------------------------------------------------------------------------
   # * Set Name
   #    name : name
-
   #--------------------------------------------------------------------------
   def name=(name)
-
     @name = name
-
   end
   #--------------------------------------------------------------------------
   # * Rename to Original Name
@@ -237,6 +251,8 @@ class Game_Event < Game_Character
       @tile_id = 0
       @character_name = ""
       @character_hue = 0
+      @restore_character_name = ""
+      @restore_character_hue = 0
       @move_type = 0
       @through = true
       @trigger = nil
@@ -249,6 +265,8 @@ class Game_Event < Game_Character
     @tile_id = @page.graphic.tile_id
     @character_name = @page.graphic.character_name
     @character_hue = @page.graphic.character_hue
+    @restore_character_name = @page.graphic.character_name
+    @restore_character_hue = @page.graphic.character_hue
     if @original_direction != @page.graphic.direction
       @direction = @page.graphic.direction
       @original_direction = @direction
@@ -356,5 +374,143 @@ class Game_Event < Game_Character
       # Update interpreter
       @interpreter.update
     end
+  end
+end
+
+#==============================================================================
+# ** Interpreter (part 8) (Events Change Sprites and Auto Call Global Objects)
+#------------------------------------------------------------------------------
+#  This interpreter runs event commands. This class is used within the
+#  Game_System class and the Game_Event class.
+#==============================================================================
+
+class Interpreter
+  #--------------------------------------------------------------------------
+  # * Change Sprite of All Events: from
+  #      actors character name
+  #      actors character hue
+  #--------------------------------------------------------------------------
+  def characters_to_actors
+    # Change all event sprites to actors character_name
+    # Found with substring "\[Nn][actor_id]"
+    for event in $game_map.events.values
+      event.sprite_from_actor
+    end
+    # Continue
+    return true
+  end
+  #--------------------------------------------------------------------------
+  # * Change Sprite of Events: from
+  #     actors character name
+  #     actors character hue
+  #     array : actors ID
+  #--------------------------------------------------------------------------
+  def characters_to_actors_ids(array)
+    # Return if not is a array
+    if not array.is_a?(Array)
+      return
+    end
+    # Change all event sprites to actors character_name
+    # Found with substring "\[Nn][actor_id]", but only has included on array
+    for event in $game_map.events.values
+      for i in array
+        if event.name_number_equal?(i)
+          event.sprite_from_actor_id(i)
+        end
+      end
+    end
+    # Continue
+    return true
+  end
+  #--------------------------------------------------------------------------
+  # * Change Sprite of All Events: from
+  #      party actors character name
+  #      party actors character hue
+  #--------------------------------------------------------------------------
+  def characters_to_party_actors
+    # Change all event sprites to party actors character_name
+    # Found with substring "\[Nn][&][actor_index]"
+    for event in $game_map.events.values
+      event.sprite_from_party_actor
+    end
+    # Continue
+    return true
+  end
+  #--------------------------------------------------------------------------
+  # * Restore Sprite of Events
+  #--------------------------------------------------------------------------
+  def restore_all_characters_sprite
+    # Restore all event sprites
+    for event in $game_map.events.values
+      event.restore_sprite
+    end
+    # Continue
+    return true
+  end
+  #--------------------------------------------------------------------------
+  # * Restore Sprite of Events
+  #     array : actors ID
+  #--------------------------------------------------------------------------
+  def restore_actors_sprite(array)
+    # Return if not is a array
+    if not array.is_a?(Array)
+      return
+    end
+    # Change all event sprites to actors character_name
+    # Found with substring "\[Nn][actor_id]", but only has included on array
+    for event in $game_map.events.values
+      for i in array
+        if event.name_number_equal?(i)
+          event.restore_sprite
+        end
+      end
+    end
+    # Continue
+    return true
+  end
+  #--------------------------------------------------------------------------
+  # * Auto Call Game_System
+  #--------------------------------------------------------------------------
+  def system
+    return $game_system
+  end
+  #--------------------------------------------------------------------------
+  # * Auto Call Game_Screen
+  #--------------------------------------------------------------------------
+  def screen
+    return $game_screen
+  end
+  #--------------------------------------------------------------------------
+  # * Auto Call Game_Party
+  #--------------------------------------------------------------------------
+  def party
+    return $game_party
+  end
+  #--------------------------------------------------------------------------
+  # * Auto Call Game_Player
+  #--------------------------------------------------------------------------
+  def player
+    return $game_player
+  end
+  #--------------------------------------------------------------------------
+  # * Auto Call Game_Troop
+  #--------------------------------------------------------------------------
+  def troop
+    return $game_troop
+  end
+  #--------------------------------------------------------------------------
+  # * Auto Call Main Game_Event
+  #--------------------------------------------------------------------------
+  def event
+    return $game_map.events[@event_id]
+  end
+  #--------------------------------------------------------------------------
+  # * Auto Call Main or Other Game_Event
+  #--------------------------------------------------------------------------
+  def event2(id=0)
+    if $game_map.events[id] != nil
+      return $game_map.events[id]
+    end
+    return $game_map.events[@event_id]
   end
 end
