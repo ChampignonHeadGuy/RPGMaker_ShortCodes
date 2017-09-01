@@ -26,12 +26,14 @@ class Game_Teleports
   end
   #--------------------------------------------------------------------------
   # * Active Teleport Flag
+  #     active : active teleport process (flag)
   #--------------------------------------------------------------------------
   def active=active
     active != true ? @active = false : @active = true
   end
   #--------------------------------------------------------------------------
   # * Set Teleport Destination Index
+  #     index : data index (not map_id)
   #--------------------------------------------------------------------------
   def map_index=index
     if index.is_a?(Numeric) and index.between?(0, 100)
@@ -81,7 +83,7 @@ class Game_Teleports
   #--------------------------------------------------------------------------
   # * Set Teleport
   #     teleport_id : teleport ID
-  #     array       : the teleport's array(id, x, y, direction)
+  #     array       : the teleport's array (id, x, y, direction)
   #--------------------------------------------------------------------------
   def []=(teleport_id, array)
     return if not teleport_id.between(0, 100)
@@ -134,38 +136,46 @@ class Teleport_data
     @trans_time = 0
   end
   #--------------------------------------------------------------------------
-  # * Object Initialization
+  # * Setup Map Data
+  #     id  : map ID
+  #     x   : x coordinate
+  #     y   : y coordinate
+  #     dir : initial direction after teleport
   #--------------------------------------------------------------------------
   def setup(id, x, y, dir)
+    # Check all input variables
     id.is_a?(Numeric)  ? @id = id   : nil
     x.is_a?(Numeric)   ? @x = x     : nil
     y.is_a?(Numeric)   ? @y = y     : nil
     dir.is_a?(Numeric) ? @dir = dir : nil
     @name = ""
+    # Get map information to fix x and y coordinates
     temp1 = load_data(sprintf("Data/Map%03d.rxdata", id))
     temp2 = load_data("Data/MapInfos.rxdata")[id]
     @name = temp2.name if temp2 != nil
     @x %= temp1.width  if temp1 != nil
     @y %= temp1.height if temp1 != nil
-    @x.abs ; @x.to_i
-    @y.abs ; @y.to_i
+    @x = Integer(@x.abs)
+    @y = Integer(@y.abs)
   end
   #--------------------------------------------------------------------------
-  # * Object Initialization
+  # * Set Default Graphics Transition
   #--------------------------------------------------------------------------
   def default_transition
     @trans_name = $game_temp.transition_name
     @trans_time = 0
   end
   #--------------------------------------------------------------------------
-  # * Object Initialization
+  # * Set Pattern Graphics Transition
+  #     name : graphics transition name
+  #     time : graphics transition duration
   #--------------------------------------------------------------------------
   def transition(name, time)
     @trans_name = name
     @trans_time = time
   end
   #--------------------------------------------------------------------------
-  # * Start place (it $teleport[ID] memorize start game map)
+  # * Start place (if $teleport[ID] memorize start game map)
   #--------------------------------------------------------------------------
   def start_place
     @id = $data_system.start_map_id
@@ -176,21 +186,40 @@ class Teleport_data
     @name = temp != nil ? temp.name : ""
   end
   #--------------------------------------------------------------------------
-  # * Object Initialization
+  # * Set Map Coordinates
+  #     x : x coordinate
+  #     y : y coordinate
   #--------------------------------------------------------------------------
   def set_coordinates(x, y)
     x.is_a?(Numeric) ? @x = x : nil
     y.is_a?(Numeric) ? @y = y : nil
-    @x %= 256 ; @x.abs ; @x.to_i
-    @y %= 256 ; @y.abs ; @y.to_i
+    @x = Integer(@x.abs % 256)
+    @y = Integer(@y.abs % 256)
   end
   #--------------------------------------------------------------------------
-  # * Object Initialization
+  # * Set Map ID
+  #     id : map ID
   #--------------------------------------------------------------------------
   def set_id(id)
     id.is_a?(Numeric) ? @id = id : nil
     @name = ""
     temp = load_data("Data/MapInfos.rxdata")[id]
     @name = temp.name if temp != nil
+  end
+end
+
+#==============================================================================
+# ** Scene_Title
+#------------------------------------------------------------------------------
+#  This class perform title screem processing.
+#==============================================================================
+
+class Scene_Title
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    # Make Teleport Object
+    $teleports = Game_Teleports.new
   end
 end
