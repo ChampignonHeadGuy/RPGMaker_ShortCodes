@@ -13,26 +13,17 @@ class Game_MessageText
   attr_reader   :fix                      # fix all parameters
   attr_accessor :lock                     # auto skip lock flag
   attr_accessor :automatic                # auto skip to next text
-  attr_accessor :criptographic            # make criptograms
   attr_accessor :restore_font             # restore text parameter: fontname
   attr_accessor :restore_size             # restore text parameter: fontsize
   attr_accessor :restore_type             # restore text parameter: bold/italic
-  attr_reader   :criptogram               # numeric swap letters
-  attr_reader   :resize                   # fix text if out of window
   attr_reader   :progress                 # next text wait flag
   attr_reader   :beep_se                  # beep filename sound
   attr_reader   :wait_write               # wait count to next letter
   attr_reader   :wait_beeps               # beep while write
   attr_reader   :wait_max                 # max auto wait time
   attr_accessor :wait_count               # auto wait time 
-  attr_accessor :pulse                    # pulse letters
-  attr_accessor :ocillate                 # shift letters size
-  attr_accessor :space                    # add space to letters
   attr_accessor :beep                     # beep while write
   attr_accessor :writting                 # write letter by letter
-  attr_accessor :rainbow_color            # rainbow gradient
-  attr_accessor :rainbow_phase            # rainbow color phases
-  attr_accessor :random_color             # random gradient
   #--------------------------------------------------------------------------
   # * Object Initialization
   #--------------------------------------------------------------------------
