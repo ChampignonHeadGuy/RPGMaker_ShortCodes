@@ -127,13 +127,19 @@ class Teleport_data
   # * Object Initialization
   #--------------------------------------------------------------------------
   def initialize
+    @trans_name = ""
+    @trans_time = 0
+    clear
+  end
+  #--------------------------------------------------------------------------
+  # * Clear to Setup New Data
+  #--------------------------------------------------------------------------
+  def clear
     @id = 0
     @x = 0
     @y = 0
     @dir = 0
     @name = ""
-    @trans_name = ""
-    @trans_time = 0
   end
   #--------------------------------------------------------------------------
   # * Setup Map Data
@@ -143,20 +149,22 @@ class Teleport_data
   #     dir : initial direction after teleport
   #--------------------------------------------------------------------------
   def setup(id, x, y, dir)
+    clear
     # Check all input variables
     id.is_a?(Numeric)  ? @id = id   : nil
     x.is_a?(Numeric)   ? @x = x     : nil
     y.is_a?(Numeric)   ? @y = y     : nil
     dir.is_a?(Numeric) ? @dir = dir : nil
-    @name = ""
     # Get map information to fix x and y coordinates
     temp1 = load_data(sprintf("Data/Map%03d.rxdata", id))
     temp2 = load_data("Data/MapInfos.rxdata")[id]
-    @name = temp2.name if temp2 != nil
-    @x %= temp1.width  if temp1 != nil
-    @y %= temp1.height if temp1 != nil
+    if temp1 != nil
+      @x %= temp1.width
+      @y %= temp1.height
+    end
     @x = Integer(@x.abs)
     @y = Integer(@y.abs)
+    @name = temp2 != nil ? temp2.name : ""
   end
   #--------------------------------------------------------------------------
   # * Set Default Graphics Transition
@@ -204,7 +212,7 @@ class Teleport_data
     id.is_a?(Numeric) ? @id = id : nil
     @name = ""
     temp = load_data("Data/MapInfos.rxdata")[id]
-    @name = temp.name if temp != nil
+    @name = temp != nil ? temp.name : ""
   end
 end
 
@@ -220,6 +228,8 @@ class Scene_Title
   #--------------------------------------------------------------------------
   def initialize
     # Make Teleport Object
-    $teleports = Game_Teleports.new
+    if $teleports == nil
+      $teleports = Game_Teleports.new
+    end
   end
 end
