@@ -376,7 +376,7 @@ class Window_Message < Window_Selectable
 end
 
 #==============================================================================
-# ** Window_Message (part 3) (Writting text codes and performs)
+# ** Window_Message (part 3) (Writting text codes with performs)
 #------------------------------------------------------------------------------
 #  This message window is used to display text.
 #==============================================================================
@@ -403,7 +403,7 @@ class Window_Message < Window_Selectable
         c = "\\"
         @text_code = true
       #----------------------------------------------------------------------
-      # If \C[n]
+      # If \C[n]: text color
       when "\001"
         # Change text color
         text.sub!(/\[([0-9]+)\]/, "")
@@ -413,7 +413,7 @@ class Window_Message < Window_Selectable
         end
         @text_code = true
       #----------------------------------------------------------------------
-      # If \G
+      # If \G: gold window
       when "\002"
         # Make gold window
         if @gold_window == nil
@@ -444,6 +444,8 @@ class Window_Message < Window_Selectable
       # If \R: Restore text
       when "\005"
         # Write text with normal settings
+        self.contents.font.size = @default_size
+        self.contents.font.name = @default_name
         self.contents.font.bold = false
         self.contents.font.italic = false
         $game_texts.restore_font = true
@@ -485,6 +487,7 @@ class Window_Message < Window_Selectable
       # Add x to drawn text width
       x += self.contents.text_size(c).width
     end
+    # Memorize x and y characters coordinates
     @xc = x
     @yc = y
     #-------------------------------------------------------------------------
@@ -508,7 +511,7 @@ class Window_Message < Window_Selectable
 end
 
 #==============================================================================
-# ** Window_Message (part 4) (Writting methods and text updates)
+# ** Window_Message (part 4) (Writting text methods and updates)
 #------------------------------------------------------------------------------
 #  This message window is used to display text.
 #==============================================================================
@@ -546,7 +549,7 @@ class Window_Message < Window_Selectable
       @progress_text = false
       #----------------------------------------------------------------------
       # If C button was pressed: draw all text automaticly
-      if Input.trigger?(Input::C) 
+      if Input.trigger?(Input::C)
         if $game_texts.lock != true
           while ((@text_char = @text.slice!(/./m)) != nil)
             write_current_text(@text, @text_char, @xc, @yc)
@@ -620,7 +623,7 @@ class Window_Message < Window_Selectable
         return
       end
     #------------------------------------------------------------------------
-    # If $game_texts.writting isn't true: 
+    # If $game_texts.writting isn't true:
     # write automatic mode (no delay and auto full text)
     else
       if @text != nil and @text_char != nil
@@ -664,8 +667,8 @@ class Window_Message < Window_Selectable
       # Confirm
       if Input.trigger?(Input::C)
         $game_system.se_play($data_system.decision_se)
-        $game_variables[$game_temp.num_input_variable_id] =
-          @input_number_window.number
+        variable_id = $game_temp.num_input_variable_id
+        $game_variables[variable_id] = @input_number_window.number
         $game_map.need_refresh = true
         # Dispose of number input window
         @input_number_window.dispose
