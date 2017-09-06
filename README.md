@@ -1,2 +1,2 @@
-# RPGMaker_ShortCodes
-It is a repository of codes for RPG Maker XP game projects, using the default project script (When a new game project in RPG Maker XP is created).
+# RPG_Maker_XP_Regular_Codes
+It is a regular codes to add on default rpg xp game projects (if is necessary to add).
