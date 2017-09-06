@@ -45,7 +45,6 @@ class Game_MessageText
     @beep_volume = 70
     @beep_pitch = 100
     @beep_se = RPG::AudioFile.new("Beep_00", 60, 100)
-    #===========================================================================
     # Make sounds filenames
     @beep_list = []
     @beep_list2 = []
@@ -59,21 +58,27 @@ class Game_MessageText
     end
   end
   #--------------------------------------------------------------------------
-  # * Get Sound Effect List
+  # * Get Sound Effect List (Inside of folder "Message_Sounds")
   #--------------------------------------------------------------------------
-  def sound_list      # Inside of folder "Message_Sounds"
+  def sound_list
     return @sound_list
   end
-  def sound_list2     # Outside of folder "Message_Sounds"
+  #--------------------------------------------------------------------------
+  # * Get Sound Effect List (Outside of folder "Message_Sounds")
+  #--------------------------------------------------------------------------
+  def sound_list2
     return @sound_list2
   end
   #--------------------------------------------------------------------------
-  # * Get Beep Sound List
+  # * Get Beep Sound List (Inside of folder "Beeps")
   #--------------------------------------------------------------------------
-  def beep_list      # Inside of folder "Beeps"
+  def beep_list
     return @beep_list
   end
-  def beep_list2     # Outside of folder "Beeps"
+  #--------------------------------------------------------------------------
+  # * Get Beep Sound List (Outside of folder "Beeps")
+  #--------------------------------------------------------------------------
+  def beep_list2
     return @beep_list2
   end
   #--------------------------------------------------------------------------
@@ -81,8 +86,7 @@ class Game_MessageText
   #     choice : wait for next text (flag)
   #--------------------------------------------------------------------------
   def progress=(choice)
-    @progress = choice
-    @progress != true ? @progress = false : nil
+    @progress = choice == true ? true : false
   end
   #--------------------------------------------------------------------------
   # * Wait times of write and beeps
@@ -295,12 +299,11 @@ class Window_Message < Window_Selectable
     # Clear Progressive text flag (can't skip while write full text)
     @progress_text = false
     $game_texts.progress = false
-    x = y = 0
+    # Clear main characters text variables
     @xc = @yc = 0
     @cursor_width = 0
     # Indent if choice
     if $game_temp.choice_start == 0
-      x = 8
       @xc = 8
     end
     #-------------------------------------------------------------------------
@@ -311,7 +314,7 @@ class Window_Message < Window_Selectable
       # Control text processing
       begin
         last_text = text.clone
-        # Change "\\[Vv]" to value of current variable ( Original Script )
+        # Change "\\[Vv]" to value of current variable
         text.gsub!(/\\[Vv]\[([0-9]+)\]/) do
           $game_variables[$1.to_i] != nil ? 
           $game_variables[$1.to_i] : ""
@@ -336,11 +339,11 @@ class Window_Message < Window_Selectable
       text.gsub!(/\\[Cc]\[([0-9]+)\]/) { "\001[#{$1}]" }
       text.gsub!(/\\[Gg]/) { "\002" }
       #-------------------------------------------------------------------------
-      # Change "\\Bd" to write text bold
+      # Change "\\Bd" to write text in bold style
       text.gsub!(/\\[Bb]/) { "\003" }
-      # Change "\\It" to write text italic
+      # Change "\\It" to write text in italic style
       text.gsub!(/\\[Ii]/) { "\004" }
-      # Change "\\R" to write normal
+      # Change "\\R" to write in normal style
       text.gsub!(/\\[Rr]/) { "\005" }
       #-------------------------------------------------------------------------
       # Change "\\WL" to change write speed (letters)
@@ -370,7 +373,8 @@ class Window_Message < Window_Selectable
       end
       #-------------------------------------------------------------------------
       # Memorize message text to write
-      @text_char = @text = text
+      @text_char = text.clone
+      @text = text.clone
     end
   end
 end
