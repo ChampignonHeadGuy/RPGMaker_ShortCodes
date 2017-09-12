@@ -220,7 +220,7 @@ class Window_Message < Window_Selectable
     self.contents.font.bold = false
     self.contents.font.italic = false
     @default_size = self.contents.font.size
-    @default_name = self.contents.font.name
+    @default_name = self.contents.font.name.clone
   end
   #--------------------------------------------------------------------------
   # * Dispose
@@ -339,9 +339,9 @@ class Window_Message < Window_Selectable
       text.gsub!(/\\[Cc]\[([0-9]+)\]/) { "\001[#{$1}]" }
       text.gsub!(/\\[Gg]/) { "\002" }
       #-------------------------------------------------------------------------
-      # Change "\\Bd" to write text in bold style
+      # Change "\\B" to write text in bold style
       text.gsub!(/\\[Bb]/) { "\003" }
-      # Change "\\It" to write text in italic style
+      # Change "\\I" to write text in italic style
       text.gsub!(/\\[Ii]/) { "\004" }
       # Change "\\R" to write in normal style
       text.gsub!(/\\[Rr]/) { "\005" }
@@ -351,7 +351,7 @@ class Window_Message < Window_Selectable
       # Change "\\WB" to change write beep period (Beeps)
       text.gsub!(/\\[Ww][Bb]\[([0-9]+)\]/) { "\007[#{$1}]" }
       #-------------------------------------------------------------------------
-      # Change "\\Wait[]" to timed messages
+      # Change "\\Wait[$1]" to timed messages
       text.gsub!(/\\[Ww][Aa][Ii][Tt]\[([0-9]+)\]/) do
         $game_texts.wait_auto([1, [999, $1.to_i].min].max)
         $game_texts.automatic = true
@@ -449,7 +449,7 @@ class Window_Message < Window_Selectable
       when "\005"
         # Write text with normal settings
         self.contents.font.size = @default_size
-        self.contents.font.name = @default_name
+        self.contents.font.name = @default_name.clone
         self.contents.font.bold = false
         self.contents.font.italic = false
         $game_texts.restore_font = true
