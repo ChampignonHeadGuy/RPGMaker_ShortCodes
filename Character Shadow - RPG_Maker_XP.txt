@@ -69,7 +69,7 @@ class Sprite_CharacterShadow < RPG::Sprite
   def initialize(viewport, character = nil)
     super(viewport)
     @character = character
-    @csw = 1
+    @shadow_scale = 1
     update
   end
   #--------------------------------------------------------------------------
@@ -87,11 +87,18 @@ class Sprite_CharacterShadow < RPG::Sprite
         bitmap = Bitmap.new(24, 12)
         self.bitmap = bitmap
         # Create arrays with x positions and widths
-        x_array =  [ 7,  4,  2,  1,  0,  0,  0,  0,  1,  2,  4,  7]
-        wt_array = [10, 16, 20, 22, 24, 24, 24, 24, 22, 20, 16, 10]
+        #x_array =  [ 7,  4,  2,  1,  0,  0,  0,  0,  1,  2,  4,  7]
+        #wt_array = [10, 16, 20, 22, 24, 24, 24, 24, 22, 20, 16, 10]
+        # Draw elipse bitmap shadow
+        #for i in 0..11
+          #self.bitmap.fill_rect(x_array[i], i, wt_array[i], 1, color)
+        #end
         # Draw elipse bitmap shadow
         for i in 0..11
-          self.bitmap.fill_rect(x_array[i], i, wt_array[i], 1, color)
+          n = (i * MATH::PI)/11
+          x = 14 - 7 * sin(n)
+          width = 10 + 14 * sin(n)
+          self.bitmap.fill_rect(x, i, width, 1, color)
         end
       # Else, create from character shadow file name
       else
@@ -111,8 +118,9 @@ class Sprite_CharacterShadow < RPG::Sprite
     self.x = @character.screen_x
     self.y = @character.screen_botton_y
     self.z = @character.screen_z(self.bitmap.height)
-    # Set opacity level
+    # Set opacity level (75% of character opacity)
     self.opacity = @character.opacity / 1.5
+    # If shadow scale is same of character scale
     if @character.shadow_zoom
       if @character.character_name != "" and 
         @character_name != @character.character_name
@@ -122,10 +130,10 @@ class Sprite_CharacterShadow < RPG::Sprite
         a = temp.bitmap.width / 4
         b = self.bitmap.width
         temp.dispose
-        @csw = a.to_f / b.to_f
+        @shadow_scale = a.to_f / b.to_f
       end
-      self.zoom_x = (@character.zoom_x / 100.0) * @csw
-      self.zoom_y = (@character.zoom_y / 100.0) * @csw
+      self.zoom_x = (@character.zoom_x / 100.0) * @shadow_scale
+      self.zoom_y = (@character.zoom_y / 100.0) * @shadow_scale
     else
       self.zoom_x = (@character.zoom_x / 100.0)
       self.zoom_y = (@character.zoom_y / 100.0)
