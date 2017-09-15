@@ -1,0 +1,1901 @@
+#==============================================================================
+# ** Animated_RegularSprites
+#------------------------------------------------------------------------------
+#  This class handles to display regular animated sprites.
+#      Work in battle backgrounds layers.
+#      Work in map on panorama and fog.
+#      Work in menu backgrounds.
+#==============================================================================
+
+class Animated_RegularSprites
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables
+  #--------------------------------------------------------------------------
+  attr_accessor :name                     # first frame name
+  attr_accessor :hue                      # hue default of frames
+  attr_accessor :blend                    # blend type
+  attr_accessor :animated                 # animation flag
+  attr_accessor :chromatic                # chromatic sprite flag
+  attr_accessor :chrome_speed             # speed hue change
+  attr_accessor :animation                # animation filenames array
+  attr_accessor :speed                    # animation speed
+  attr_accessor :frame                    # animation index
+  attr_reader   :target_hue               # target hue default of frames
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    @animation = []
+    @reload = []
+    clear
+  end
+  #--------------------------------------------------------------------------
+  # * Clear
+  #--------------------------------------------------------------------------
+  def clear
+    @name = ""
+    @hue = 0
+    @blend = 0
+    @frame = 0
+    @speed = 0
+    @animation.clear
+    @reload.clear
+    @animated = false
+    @chromatic = false
+    @target_hue = 0
+    @chrome_speed = 0
+  end
+  #--------------------------------------------------------------------------
+  # * Change Target HUE
+  #     target_hue : new hue (target)
+  #--------------------------------------------------------------------------
+  def target_hue=(target_hue)
+    target_hue.is_a?(Numeric) ? @target_hue = target_hue : nil
+  end
+  #--------------------------------------------------------------------------
+  # * Make animated sprite (flag)
+  #     choice : choice flag
+  #--------------------------------------------------------------------------
+  def play?(choice=true)
+    @animated = choice
+  end
+  #--------------------------------------------------------------------------
+  # * Change only frames of animation
+  #     list : filename array list
+  #--------------------------------------------------------------------------
+  def change(list)
+    if list.is_a?(Array) and list.size > 0
+      @frame = 0
+      @animation.clear
+      @animation = list
+      @name = @animation[0]
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Change only frames of animation and fix
+  #     list : filename array list
+  #--------------------------------------------------------------------------
+  def change_fix(list)
+    change(list)
+    @reload.clear
+    @reload = list
+  end
+  #--------------------------------------------------------------------------
+  # * Only fix frames of animation
+  #--------------------------------------------------------------------------
+  def fix_animation
+    @reload.clear
+    @reload = @animation.clone
+  end
+  #--------------------------------------------------------------------------
+  # * Only fix frames of animation
+  #--------------------------------------------------------------------------
+  def fix_data
+    @name.is_a?(String)     ? nil : @name = ""
+    @frame.is_a?(Numeric)   ? nil : @frame = 0
+    @speed.is_a?(Numeric)   ? @speed.to_f : @speed = 0
+    @hue.is_a?(Numeric)     ? @hue.to_i   : @hue   = 0
+    @animation.is_a?(Array) ? nil : @animation = []
+    @reload.is_a?(Array)    ? nil : @reload = []
+    @animated != true       ? @animated  = false : nil
+    @chromatic != true      ? @chromatic = false : nil
+  end
+  #--------------------------------------------------------------------------
+  # * Substitute Frame
+  #     index     : frame index
+  #     new_frame : new frame filename
+  #--------------------------------------------------------------------------
+  def subs(index, new_frame)
+    @animation[index] = new_frame
+  end
+  #--------------------------------------------------------------------------
+  # * Add Frame
+  #     new_frame : new frame filename
+  #--------------------------------------------------------------------------
+  def add(new_frame)
+    @animation.push(new_frame)
+  end
+  #--------------------------------------------------------------------------
+  # * Remove Frame
+  #     index : animation[index]
+  #--------------------------------------------------------------------------
+  def remove(index)
+    if index.is_a?(Numeric) and @animation[index] != nil
+      @animation.delete_at(index)
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Withdraw Frame
+  #     frame : animation frame filename
+  #--------------------------------------------------------------------------
+  def withdraw(frame)
+    if @animation.size > 0 and frame.is_a?(String)
+      @animation.delete(frame)
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Withdraw Frame
+  #     frame : animation frame filename
+  #--------------------------------------------------------------------------
+  def withdraw_first(frame)
+    if @animation.size == 0
+      return
+    end
+    for i in 0...@animation
+      if frame.is_a?(String) and @animation[i] = frame
+        @animation[i] = nil
+        @animation.compact!
+        break
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Remake animations
+  #--------------------------------------------------------------------------
+  def remake
+    @animation = @reload.clone
+    @animation.size > 0 ? @name = @animation[0] : nil
+    @frame = 0
+  end
+  #--------------------------------------------------------------------------
+  # * Erase animation
+  #--------------------------------------------------------------------------
+  def erase
+    @animation.clear
+    @speed = @frame = 0
+    @name = ""
+    @hue = 0
+  end
+  #--------------------------------------------------------------------------
+  # * Flush (fix all animation contents)
+  #--------------------------------------------------------------------------
+  def flush
+    if @animation.size > 0
+      for frame in @animation
+        frame.to_s if frame.is_a?(Numeric)
+        frame = nil if frame == ""
+        frame = nil if not frame.is_a?(String)
+      end
+      @animation.compact!
+      @reload = @animation.clone
+    end
+    @name.is_a?(Numeric) ? @name.to_s : nil
+    if (@name == "" or not @name.is_a?(String))
+      @name = "nada"
+    end
+    if @animation.size > 0
+      @name = @animation[0]
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Update Animation Frames [Back layers, sprites, etc]
+  #--------------------------------------------------------------------------
+  def update
+    # Fix blend type and hue
+    @blend.is_a?(Numeric) ? @blend.to_i : @blend = 0
+    @blend = [[@blend, 0].max, 2].min
+    @hue.is_a?(Numeric) ? @hue = @hue.abs : @hue = 0 ; @hue %= 360
+    #------------------------------------------------------------------------
+    # Fix animation speed (max and min) and animation frame list
+    @animated != true ? @animated = false : true
+    @chromatic != true ? @chromatic = false : true
+    @frame.is_a?(Numeric) ? @frame.to_f : @frame = 0
+    @speed.is_a?(Numeric) ? @speed.to_f : @speed = 0
+    @speed = [[@speed, -400].max, 400].min
+    @animation.is_a?(Array) ? nil : @animation = []
+    #------------------------------------------------------------------------
+    # Return if not valid to play animation
+    return if @animation.size == 0
+    return if not @animated
+    #------------------------------------------------------------------------
+    # Updade animation frame index
+    s = @speed.to_f / (Graphics.frame_rate * 10.0)
+    @frame += s ;@frame %= @animation.size
+  end
+end
+
+#==============================================================================
+# ** Game_BattleBackgrounds (part 1)
+#------------------------------------------------------------------------------
+#  This class handles to display animated battle backgrounds.
+#  Refer to "$battle_backs" for the instance of this class.
+#==============================================================================
+
+class Game_BattleBackgrounds
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables
+  #--------------------------------------------------------------------------
+  attr_reader   :layers                   # animated battle back sprites
+  attr_reader   :surface                  # display surface parallax (flag)
+  attr_reader   :amp_tone                 # color tone amplitude
+  attr_reader   :tone                     # color tone
+  attr_reader   :equal_tones              # symbol tone color equal (flag)
+  attr_accessor :scroll_x                 # x coordinate parallax
+  attr_accessor :scroll_y                 # y coordinate parallax
+  attr_accessor :scroll_speed_x           # speed x scrolling parallax
+  attr_accessor :scroll_speed_y           # speed y scrolling parallax
+  attr_accessor :in_layers                # display battleback layers (flag)
+  attr_accessor :chrome_acc               # acc chrome change
+  attr_accessor :chrome_type              # Chomatic type
+  attr_accessor :anime_type               # animation type
+  attr_accessor :fog_visible              # display fog on battle (flag)
+  attr_accessor :code_mode                # change battleback parameters
+  attr_accessor :code                     # battleback parameters: code
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    @amp_tone = 0
+    @tone = Tone.new(0, 0, 0, 0)
+    @tone_target = Tone.new(0, 0, 0, 0)
+    @duration = 0
+    @tone_duration = 0
+    @hue_duration = 0
+    @code_mode = false
+    @code = 0
+    #------------------------------------------------------------------------
+    # Initialize parallax scroll informations
+    @scroll_x = 0
+    @scroll_y = 0
+    @scroll_speed_x = 0
+    @scroll_speed_y = 2
+    @anime_type = 0
+    @chrome_acc = 0.04
+    @chrome_type = 0
+    @surface = @in_layers = true
+    @equal_tones = true
+    @fog_visible = true
+    #------------------------------------------------------------------------
+    # Make animated layers
+    @layers = []
+    @layers.push(Animated_RegularSprites.new) # Parallax
+    @layers.push(Animated_RegularSprites.new) # Bottom
+    @layers.push(Animated_RegularSprites.new) # Shadow
+    @layers.push(Animated_RegularSprites.new) # Symbol
+    @layers.push(Animated_RegularSprites.new) # Fog
+    @layers.push(Animated_RegularSprites.new) # BattleBack
+    #------------------------------------------------------------------------
+    # Initialize Battle backgrounds Sprites
+    setup_layers_list
+    setup_layers_blend
+    setup_symbol
+    setup_fog
+  end
+  #--------------------------------------------------------------------------
+  # * Surface make appear
+  #     appear : visible or no visible
+  #     layers : visible in layers
+  #--------------------------------------------------------------------------
+  def surface_appear?(appear, layers=true)
+    @surface = appear
+    @in_layers = layers
+  end
+  #--------------------------------------------------------------------------
+  # * HUE change speed
+  #     index : layer index
+  #     speed : layer speed change hue
+  #--------------------------------------------------------------------------
+  def hue_speed_index(index, speed)
+    if not index.is_a?(Numeric)
+      return
+    end
+    index %= @layers.size
+    if speed.is_a?(Numeric)
+      @layers[index].chrome_speed = speed
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * HUE change speed
+  #     array : layers speed change hue
+  #--------------------------------------------------------------------------
+  def hue_speed(array)
+    # If no use array
+    return if not array.is_a?(Array)
+    # Remove any element over of range
+    while array.size > @layers.size
+      array.pop
+    end
+    # Apply all values in @layers array
+    for i in 0...array.size
+      if array[i].is_a?(Numeric)
+        @layers[i].chome_speed = array[i]
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * HUE change
+  #     index    : layer index
+  #     duration : time
+  #     hue      : new layer hue
+  #--------------------------------------------------------------------------
+  def hue_change_index(index, duration, hue=0)
+    if not index.is_a?(Numeric)
+      return
+    end
+    index %= @layers.size
+    @layers[index].target_hue = hue
+    @layers[index].chrome_speed = 0
+    @hue_duration = duration
+    if @hue_duration < 1
+      @layers[index].hue = @layers[index].target_hue
+      @hue_duration = 0
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * HUE change
+  #     index    : layer index
+  #     duration : time
+  #--------------------------------------------------------------------------
+  def hue_change(array1, duration)
+    # If no use array
+    return if not array1.is_a?(Array)
+    # Remove any element over of range
+    while array.size > @layers.size
+      array.pop
+    end
+    # Apply all values in @layers array
+    for i in 0...array1.size
+      @layers[i].target_hue = array1[i]
+      @layers[i].chrome_speed = 0
+    end
+    @hue_duration = duration
+    if @hue_duration < 1
+      for i in 0...array1.size
+        @layers[i].hue = @layers[i].target_hue
+        @hue_duration = 0
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Start Change of Color Tone
+  #     tone     : color tone
+  #     duration : time
+  #--------------------------------------------------------------------------
+  def tone_change(tone, duration)
+    @tone_target = tone.clone
+    @tone_duration = duration
+    if @tone_duration < 1
+      @tone = @tone_target.clone
+      @tone_duration = 0
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Amplitude of tone("Amplitone")
+  #     scale    : size of amplitude tone
+  #--------------------------------------------------------------------------
+  def amplitone=(scale)
+    scale.is_a?(Numeric) ? @amp_tone = scale : nil
+    @amp_tone = [-255, [255, @amp_tone].min].max
+  end
+  #--------------------------------------------------------------------------
+  # * Start Change blend type(normal, addition, subtract)
+  #     bottom : bottom blend type
+  #     shadow : shadow blend type
+  #     symbol : symbol blend type
+  #--------------------------------------------------------------------------
+  def change_blend(bottom=1, shadow=1, symbol=0)
+    if bottom.is_a?(Numeric) and bottom.between?(0, 2)
+      @blend_bottom = bottom
+    end
+    if shadow.is_a?(Numeric) and shadow.between?(0, 2)
+      @blend_shadow = shadow
+    end
+    if symbol.is_a?(Numeric) and symbol.between?(0, 2)
+      @blend_symbol = symbol
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update
+    # Update blend type for bottom, shadow and symbol
+    @blend_bottom = [[@blend_bottom.to_i, 0].max, 2].min
+    @blend_shadow = [[@blend_shadow.to_i, 0].max, 2].min
+    @blend_symbol = [[@blend_symbol.to_i, 0].max, 2].min
+    #------------------------------------------------------------------------
+    # Tone colors
+    if @tone_duration > 0
+      d = @tone_duration.to_f
+      @tone.red   = (@tone.red   * (d - 1) + @tone_target.red)   / d
+      @tone.green = (@tone.green * (d - 1) + @tone_target.green) / d
+      @tone.blue  = (@tone.blue  * (d - 1) + @tone_target.blue)  / d
+      @tone.gray  = (@tone.gray  * (d - 1) + @tone_target.gray)  / d
+      @tone_duration -= 0.25
+    end
+    #------------------------------------------------------------------------
+    # Symbol tone colors
+    if @equal_tones == true
+      @symbol_tone = @tone.clone
+    else
+      if @symbol_tone_duration > 0
+        d = @symbol_tone_duration.to_f
+        tone = @symbol_tone
+        ttone = @target_symbol_tone
+        tone.red   = (tone.red   * (d - 1) + ttone.red)   / d
+        tone.green = (tone.green * (d - 1) + ttone.green) / d
+        tone.blue  = (tone.blue  * (d - 1) + ttone.blue)  / d
+        tone.gray  = (tone.gray  * (d - 1) + ttone.gray)  / d
+        @symbol_tone_duration -= 0.25
+      end
+    end
+    #------------------------------------------------------------------------
+    # Coordinates, sizes and opacities
+    if @symbol_duration >= 1
+      d = @symbol_duration
+      @symbol_x = (@symbol_x * (d - 1) + @target_symbol_x) / d
+      @symbol_y = (@symbol_y * (d - 1) + @target_symbol_y) / d
+      if @zoom_equal == true
+        @symbol_zoom_x = (@symbol_zoom_x * (d - 1) + @target_symbol_zoom) / d
+        @symbol_zoom_y = (@symbol_zoom_y * (d - 1) + @target_symbol_zoom) / d
+      else
+        @symbol_zoom_x = (@symbol_zoom_x * (d - 1) + @target_symbol_zoom_x) / d
+        @symbol_zoom_y = (@symbol_zoom_y * (d - 1) + @target_symbol_zoom_y) / d
+      end
+      @symbol_opacity = (@symbol_opacity * (d - 1) + @target_symbol_opacity) / d
+      @symbol_duration -= 1
+    end
+    #------------------------------------------------------------------------
+    # In rotation
+    if @symbol_rotate_speed != 0
+      if @symbol_swing == true
+        @symbol_angle = @swing_amp * Math.sin(@swing_turn)
+        @swing_turn += @symbol_rotate_speed / 200.0
+        @swing_turn %= (Math::PI * 4)
+      else
+        @symbol_angle += @symbol_rotate_speed / 2.0
+        while @symbol_angle < 0
+          @symbol_angle += 360
+        end
+        @symbol_angle %= 360
+      end
+    end
+    #------------------------------------------------------------------------
+    # HUE colors
+    if @hue_duration > 0
+      d = @hue_duration.to_f
+      for layer in @layers
+        if layer.chrome_speed == 0
+          layer.hue = (layer.hue  * (d - 1) + layer.target_hue) / d
+        end
+        layer.hue = layer.hue.abs
+        layer.hue %= 360
+      end
+      @hue_duration -= 0.125
+    end
+    @chrome_acc.is_a?(Numeric) ? nil : @chrome_acc = 0
+    #------------------------------------------------------------------------
+    # Correction of switches (regulars)
+    @surface        != true ? @surface        = false : true
+    @in_layers      != true ? @in_layers      = false : true
+    @code_mode      != true ? @code_mode      = false : true
+    @zoom_equal     != true ? @zoom_equal     = false : true
+    @fog_visible    != true ? @fog_visible    = false : true
+    @equal_tones    != true ? @equal_tones    = false : true
+    @symbol_swing   != true ? @symbol_swing   = false : true
+    @symbol_rotate  != true ? @symbol_rotate  = false : true
+    @symbol_visible != true ? @symbol_visible = false : true
+    $game_temp.battleback_hue = @layers[5].hue
+    #------------------------------------------------------------------------
+    @scroll_speed_x = [[@scroll_speed_x, -100].max, 100].min
+    @scroll_speed_y = [[@scroll_speed_y, -100].max, 100].min
+    #------------------------------------------------------------------------
+    # Update animated battle backgrounds (per layer)
+    # Fog not inclued
+    array = [0, 1, 2, 3, 5]
+    for i in array
+      if @layers[i].animated == true 
+        update_layer_animation(i)
+        @layers[i].update
+      end
+    end
+    # If fog is displayed, update fog
+    @fog_visible == true ? update_fog : nil
+    # Update chrome type
+    update_chrome_type
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update (when chrome type is valid)
+  #--------------------------------------------------------------------------
+  def update_chrome_type
+    case @chrome_type
+    #------------------------------------------------------------------------
+    when 1     # Rainbow hue colors (all surfaces)
+      if @layers[1].chromatic == true
+        @layers[1].hue = ((@layers[1].hue + @layers[1].chrome_speed) % 360)
+      end
+      if @layers[2].chromatic == true
+        @layers[2].hue = ((@layers[2].hue + @layers[2].chrome_speed) % 360)
+      end
+      if @layers[3].chromatic == true
+        @layers[3].hue = ((@layers[3].hue + @layers[3].chrome_speed) % 360)
+      end
+      @layers[0].hue = ((@layers[0].hue + @layers[0].chrome_speed) % 360)
+      @layers[5].hue = ((@layers[5].hue + @layers[5].chrome_speed) % 360)
+    #------------------------------------------------------------------------
+    when 2     # Rainbow hue colors (Bottom and Shadow)
+      if @layers[1].chromatic == true
+        @layers[1].hue = ((@layers[1].hue + @layers[1].chrome_speed) % 360)
+      end
+      if @layers[2].chromatic == true
+        @layers[2].hue = ((@layers[2].hue + @layers[2].chrome_speed) % 360)
+      end
+    #------------------------------------------------------------------------
+    when 3     # Rainbow hue colors (parallax surface)
+      @layers[0].hue = ((@layers[0].hue + @layers[0].chrome_speed) % 360)
+    #------------------------------------------------------------------------
+    when 4     # Rainbow hue colors (Bottom surface)
+      if @layers[1].chromatic == true
+        @layers[1].hue = ((@layers[1].hue + @layers[1].chrome_speed) % 360)
+      end
+    #------------------------------------------------------------------------
+    when 5     # Rainbow hue colors (Shadow surface)
+      if @layers[2].chromatic == true
+        @layers[2].hue = ((@layers[2].hue + @layers[2].chrome_speed) % 360)
+      end
+    #------------------------------------------------------------------------
+    when 6     # Rainbow hue colors (Symbol surface)
+      if @layers[3].chromatic == true
+        @layers[3].hue = ((@layers[3].hue + @layers[3].chrome_speed) % 360)
+      end
+    #------------------------------------------------------------------------
+    when 7     # Rainbow hue colors (Battleback surface)
+      if @layers[5].chromatic == true
+        @layers[5].hue = ((@layers[5].hue + @layers[5].chrome_speed) % 360)
+      end
+    #------------------------------------------------------------------------
+    when 99    # Return to natural color
+      @chrome_type = 0
+      @hue_duration = 80
+      for layer in @layers
+        layer.target_hue = 0
+      end
+      tone = Tone.new(0, 0, 0, 0)
+      tone_change(tone, 80) 
+    end
+  end
+end
+
+#==============================================================================
+# ** Game_BattleBackgrounds (part 2) (Setup lists and animation frames)
+#------------------------------------------------------------------------------
+#  This class handles to display animated battle backgrounds.
+#  Refer to "$battle_backs" for the instance of this class.
+#==============================================================================
+
+class Game_BattleBackgrounds
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables (animate battle back layers (Parallax))
+  #--------------------------------------------------------------------------
+  attr_reader   :parallax_list            # parallax: filenames
+  attr_reader   :bottom_list              # layer 1: filenames
+  attr_reader   :shadow_list              # layer 2: filenames
+  attr_reader   :symbol_list              # layer 3: filenames
+  attr_accessor :blend_bottom             # blend: layer 1
+  attr_accessor :blend_shadow             # blend: layer 2
+  attr_accessor :blend_symbol             # blend: layer 3
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def setup_layers_list
+    @parallax_list = []
+    @bottom_list = []
+    @shadow_list = []
+    @symbol_list = []
+    for i in 0..255
+      @parallax_list.push(sprintf("Parallax_%.2x", i))
+      @bottom_list.push(sprintf("Bottom_%.2x", i))
+      @shadow_list.push(sprintf("Shadow_%.2x", i))
+      @symbol_list.push(sprintf("Symbol_%.2x", i))
+    end
+    @layers[0].name = @parallax_list[0]
+    @layers[1].name = @bottom_list[0]
+    @layers[2].name = @shadow_list[0]
+  end
+  #--------------------------------------------------------------------------
+  # * Setup Blend Types (not used in parallax or battleback)
+  #--------------------------------------------------------------------------
+  def setup_layers_blend
+    # By default, bottom and shadow blend types is "addition"
+    @blend_bottom = 1
+    @blend_shadow = 1
+    # Symbol blend type is "normal"
+    @blend_symbol = 0
+  end
+  #--------------------------------------------------------------------------
+  # * Make animated (Layer)
+  #     index  : layer index
+  #     array  : animation filename array
+  #     speed  : animation speed
+  #     choice : animation play
+  #--------------------------------------------------------------------------
+  def is_animated(index, array, speed, choice=true)
+    if not index.is_a?(Numeric)
+      return
+    end
+    index %= @layers.size
+    @layers[index].change(array)
+    @layers[index].speed = speed
+    @layers[index].play?(choice)
+  end
+  #--------------------------------------------------------------------------
+  # * Switch animated layers
+  #     index  : layer index
+  #     choice : animation play
+  #--------------------------------------------------------------------------
+  def animate_index(index, choice=true)
+    if not index.is_a?(Numeric)
+      return
+    end
+    index %= @layers.size
+    @layers[index].play?(choice)
+  end
+  #--------------------------------------------------------------------------
+  # * Switch animated layers
+  #     array : animation layer play
+  #--------------------------------------------------------------------------
+  def animate_layers(array)
+    # If no use array
+    return if not array.is_a?(Array)
+    # Apply all values in @layers array
+    for i in 0...@layers.size
+      @layers[i].play?(array[i])
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Update Layer Animation Frame
+  #     index : layer index
+  #--------------------------------------------------------------------------
+  def update_layer_animation(index)
+    # Return if index is not valid
+    return if not index.is_a?(Numeric)
+    #------------------------------------------------------------------------
+    # Set max or min of index ,get animation array and get animation index
+    index = [[index.to_i, 0].max, 5].min
+    animation = @layers[index].animation
+    frame = @layers[index].frame.to_i
+    #------------------------------------------------------------------------
+    # Check if animation[frame] is valid
+    if animation[frame] != nil and animation[frame] != ""
+      # Get filename
+      filename = animation[frame].to_s
+      # Branch by index to get path
+      case index
+      when 0   # Parallax layer path
+        path = "Graphics/Battlebacks/Parallax/"
+      when 1   # Bottom layer path
+        path = "Graphics/Battlebacks/Bottom/"
+      when 2   # Shadow layer path
+        path = "Graphics/Battlebacks/Shadow/"
+      when 3   # Symbol layer path
+        path = "Graphics/Battlebacks/Symbol/"
+      when 4   # Fogs layer path
+        path = "Graphics/Fogs/"
+      when 5   # Battlebacks layer path
+        path = "Graphics/Battlebacks/"
+      end
+      # Check if filename exist
+      if (FileTest.exist?(path+filename+".png") or
+          FileTest.exist?(path+filename+".jpg") or
+          FileTest.exist?(path+filename+".jpeg"))
+        @layers[index].name = filename
+      end
+    end
+  end
+end
+
+#==============================================================================
+# ** Game_BattleBackgrounds (part 3) (Set layers bitmap names)
+#------------------------------------------------------------------------------
+#  This class handles to display animated battle backgrounds.
+#  Refer to "$battle_backs" for the instance of this class.
+#==============================================================================
+
+class Game_BattleBackgrounds
+  #--------------------------------------------------------------------------
+  # * Set layer of background(parallax)
+  #     index   : parallax filename index
+  #     speed_x : x scroll parallax speed
+  #     speed_y : y scroll parallax speed
+  #--------------------------------------------------------------------------
+  def set_parallax_back(index, speed_x=2, speed_y=0)
+    if index.is_a?(Numeric)
+      if @parallax_list.include?(@parallax_list[index])
+        @layers[0].name = @parallax[index]
+      end
+    end
+    speed_parallax(speed_x, speed_y)
+  end
+  #--------------------------------------------------------------------------
+  # * Set layer of background(parallax)
+  #     parallax : parallax filename
+  #     speed_x  : x scroll parallax speed
+  #     speed_y  : y scroll parallax speed
+  #--------------------------------------------------------------------------
+  def set_parallax(parallax, speed_x=2, speed_y=0)
+    @layers[0].name = parallax
+    speed_parallax(speed_x, speed_y)
+  end
+  #--------------------------------------------------------------------------
+  # * Set layer of background (parallax)
+  #     speed_x : x scroll parallax speed
+  #     speed_y : y scroll parallax speed
+  #--------------------------------------------------------------------------
+  def speed_parallax(speed_x, speed_y)
+    speed_x.is_a?(Numeric) ? @scroll_speed_x = speed_x : nil
+    speed_x.is_a?(Numeric) ? @scroll_speed_y = speed_y : nil
+  end
+  #--------------------------------------------------------------------------
+  # * Set layer of background(bottom)
+  #     index : bottom filename index
+  #--------------------------------------------------------------------------
+  def set_bottom_back(index)
+    if index.is_a?(Numeric)
+      if @bottom_list.include?(@bottom_list[index])
+        @layers[1].name = @bottom_list[index]
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Set layer of background(bottom)
+  #     bottom : bottom filename
+  #--------------------------------------------------------------------------
+  def set_bottom(bottom)
+    @layers[1].name = bottom
+  end
+  #--------------------------------------------------------------------------
+  # * Set layer of background(shadow)
+  #     index : shadow filename index
+  #--------------------------------------------------------------------------
+  def set_shadow_back(index)
+    if index.is_a?(Numeric)
+      if @shadow_list.include?(@shadow_list[index])
+        @layers[2].name = @shadow_list[index]
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Set layer of background (shadow)
+  #     shadow : shadow filename
+  #--------------------------------------------------------------------------
+  def set_shadow(shadow)
+    @layers[2].name = shadow
+  end
+  #--------------------------------------------------------------------------
+  # * Set layer of background(symbol)
+  #     index : symbol filename index
+  #--------------------------------------------------------------------------
+  def set_symbol_back(index)
+    if index.is_a?(Numeric)
+      if @symbol_list.include?(@symbol_list[index])
+        @layers[3].name = @symbol_list[@index]
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Set layer of background(symbol)
+  #     symbol : symbol filename
+  #--------------------------------------------------------------------------
+  def set_symbol(symbol)
+    @layers[3].name = symbol
+  end
+  #--------------------------------------------------------------------------
+  # * Set layers of battle background (search by index)
+  #     array  : layer filenames index
+  #     speeds : x and y scroll parallax speed
+  #     anime  : animation type
+  #     chrome : chromatic type
+  #--------------------------------------------------------------------------
+  def make_back(array, speeds, anime=nil, chrome=nil)
+    # If no use array
+    if not array.is_a?(Array)
+      return
+    end
+    # Set parallax name from @parallax list
+    if array[0].is_a?(Numeric)
+      if @parallax.include?(@parallax_list[array[0]])
+        @layers[0].name = @parallax_list[array[0]]
+      end
+    end
+    # Set parallax name from @bottom list
+    if array[1].is_a?(Numeric)
+      if @bottom.include?(@bottom_list[array[1]])
+        @layers[1].name = @bottom_list[array[1]]
+      end
+    end
+    # Set parallax name from @shadow list
+    if array[2].is_a?(Numeric)
+      if @shadow.include?(@shadow_list[array[2]])
+        @layers[2].name = @shadow_list[array[2]]
+      end
+    end
+    # If no use array
+    if not speeds.is_a?(Array)
+      return
+    end
+    # Set x scroll speed and y scroll speed
+    speeds[0].is_a?(Numeric) ? @scroll_speed_x = speeds[0] : nil
+    speeds[1].is_a?(Numeric) ? @scroll_speed_y = speeds[1] : nil
+    # Set animation type and chrome type
+    anime.is_a?(Numeric)  ? @anime_type  = anime  : @anime_type  = nil
+    chrome.is_a?(Numeric) ? @chrome_type = chrome : @chrome_type = nil
+  end
+  #--------------------------------------------------------------------------
+  # * Set layers of battle background (search by filename)
+  #     parallax : parallax background
+  #     bottom   : layer1 background
+  #     shadow   : layer2 background
+  #     speeds   : x and y scroll parallax speed
+  #     anime    : animation type
+  #     chrome   : chromatic type
+  #--------------------------------------------------------------------------
+  def make(parallax, bottom, shadow, speeds, anime=0, chrome=0)
+    @layers[0].name = parallax
+    @layers[1].name = bottom
+    @layers[2].name = shadow
+    # If no use array
+    if not speeds.is_a?(Array)
+      return
+    end
+    # Set x scroll speed and y scroll speed
+    speeds[0].is_a?(Numeric) ? @scroll_speed_x = speeds[0] : nil
+    speeds[1].is_a?(Numeric) ? @scroll_speed_y = speeds[1] : nil
+    # Set animation type and chrome type
+    anime.is_a?(Numeric)  ? @anime_type  = anime  : @anime_type  = nil
+    chrome.is_a?(Numeric) ? @chrome_type = chrome : @chrome_type = nil
+  end
+end
+
+#==============================================================================
+# ** Game_BattleBackgrounds (part 4) (Symbol Performs)
+#------------------------------------------------------------------------------
+#  This class handles to display animated battle backgrounds.
+#  Refer to "$battle_backs" for the instance of this class.
+#==============================================================================
+
+class Game_BattleBackgrounds
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables (animate battle back layers (Symbol))
+  #--------------------------------------------------------------------------
+  attr_reader   :symbol_visible           # visible
+  attr_reader   :symbol_x                 # x-coordinate
+  attr_reader   :symbol_y                 # y-coordinate
+  attr_reader   :symbol_tone              # color tone (symbol)
+  attr_reader   :symbol_angle             # angle
+  attr_reader   :symbol_zoom_x            # x directional zoom rate
+  attr_reader   :symbol_zoom_y            # y directional zoom rate
+  attr_reader   :symbol_zoom_equal        # equal directional zoom rate
+  attr_reader   :symbol_opacity           # opacity level
+  attr_accessor :swing_amp                # swing amlitude
+  attr_accessor :swing_turn               # swing turn
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def setup_symbol
+    # Make main symbol variables
+    @symbol_visible = true
+    @symbol_x = 320.0
+    @symbol_y = 160.0
+    @symbol_rotate_speed = 0.0
+    @symbol_rotate = true
+    @symbol_angle = 0.0
+    @symbol_zoom_x = 100.0
+    @symbol_zoom_y = 100.0
+    @zoom_equal = true
+    # Make duration variables
+    @symbol_duration = 0
+    @symbol_opacity = 255.0
+    @symbol_tone = Tone.new(0, 0, 0, 0)
+    @symbol_tone_duration = 0
+    # Make target variables
+    @target_symbol_angle = 0.0
+    @target_symbol_x = @symbol_x
+    @target_symbol_y = @symbol_y
+    @target_symbol_zoom = 100.0
+    @target_symbol_zoom_x = @symbol_zoom_x
+    @target_symbol_zoom_y = @symbol_zoom_y
+    @target_symbol_opacity = @symbol_opacity
+    @target_symbol_tone = Tone.new(0, 0, 0, 0)
+    # Make swing move variables
+    @swing_amp = 0.0
+    @swing_turn = 0.0
+    @symbol_swing = false
+  end
+  #--------------------------------------------------------------------------
+  # * Move Symbol
+  #     duration   : time
+  #     x          : x-coordinate
+  #     y          : y-coordinate
+  #     zoom_x     : x directional zoom rate
+  #     zoom_y     : y directional zoom rate
+  #     opacity    : opacity level
+  #     blend_type : blend method
+  #--------------------------------------------------------------------------
+  def move_symbol(duration, x, y, opacity, appear=true)
+    @symbol_duration = duration
+    @target_symbol_x = x.to_f
+    @target_symbol_y = y.to_f
+    @target_symbol_opacity = opacity.to_f
+    if @symbol_duration < 1
+      @symbol_x = @target_symbol_x
+      @symbol_y = @target_symbol_y
+      @symbol_opacity = @target_symbol_opacity
+    end
+    @symbol_visible = appear
+  end
+  #--------------------------------------------------------------------------
+  # * Change Picture Opacity
+  #     duration   : time
+  #     opacity    : opacity level
+  #--------------------------------------------------------------------------
+  def symbol_visible=(appear)
+    @symbol_visible = appear
+  end
+  #--------------------------------------------------------------------------
+  # * Change Picture Opacity
+  #     duration   : time
+  #     opacity    : opacity level
+  #--------------------------------------------------------------------------
+  def symbol_opacity?(duration, opacity)
+    @symbol_duration = duration
+    @target_symbol_opacity = opacity.to_f
+    if @symbol_duration < 1
+      @symbol_opacity = @target_symbol_opacity.to_f
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Start Change of Color Tone
+  #     tone     : color tone
+  #     duration : time
+  #--------------------------------------------------------------------------
+  def symbol_tone_change(choice, tone, duration)
+    @equal_tones = choice
+    if @equal_tones != true
+      @target_symbol_tone = tone.clone
+      @symbol_tone_duration = duration
+      if @symbol_tone_duration < 1
+        @symbol_tone = tone.clone
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Change Rotation Speed
+  #     speed : rotation speed
+  #--------------------------------------------------------------------------
+  def make_symbol_swing(amp, speed, turn=0)
+    @swing_amp = [[amp.to_f, 0].max, 3600].min
+    @symbol_rotate_speed = [[speed.to_f, -100].max, 100].min
+    @swing_turn = (turn * Math::PI)/180.0
+    @symbol_swing = true
+  end
+  #--------------------------------------------------------------------------
+  # * Change Rotation Speed
+  #     speed : rotation speed
+  #--------------------------------------------------------------------------
+  def symbol_rotate=(speed)
+    @symbol_rotate_speed = speed.to_f
+    @symbol_swing = false
+  end
+  #--------------------------------------------------------------------------
+  # * Change Symbol Resolution Scale
+  #     duration : time
+  #     scale    : x zoom rate and y zoom rate
+  #--------------------------------------------------------------------------
+  def scale_equal(duration, scale)
+    @symbol_duration = duration
+    @target_symbol_zoom = scale.to_f
+    @zoom_equal = true
+    if @symbol_duration < 1
+      @symbol_zoom_x = @target_symbol_zoom
+      @symbol_zoom_y = @target_symbol_zoom
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Change Symbol Resolution Scale
+  #     duration : time
+  #     zoom_x   : x zoom rate
+  #     zoom_y   : y zoom rate
+  #--------------------------------------------------------------------------
+  def scale(duration, zoom_x, zoom_y)
+    @symbol_duration = duration
+    @target_symbol_zoom_x = zoom_x.to_f
+    @target_symbol_zoom_y = zoom_y.to_f
+    @zoom_equal = false
+    if @symbol_duration < 1
+      @symbol_zoom_x = @target_symbol_zoom_x
+      @symbol_zoom_y = @target_symbol_zoom_y
+    end
+  end
+end
+
+#==============================================================================
+# ** Game_BattleBackgrounds (part 5) (Fog Performs)
+#------------------------------------------------------------------------------
+#  This class handles to display animated battle backgrounds.
+#  Refer to "$battle_backs" for the instance of this class.
+#==============================================================================
+
+class Game_BattleBackgrounds
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables (animate fog in battle)
+  #--------------------------------------------------------------------------
+  attr_accessor :fog_display_x            # display x-coordinate * 128
+  attr_accessor :fog_display_y            # display y-coordinate * 128
+  attr_accessor :fog_opacity              # fog opacity level
+  attr_accessor :fog_blend_type           # fog blending method
+  attr_accessor :fog_zoom                 # fog zoom rate
+  attr_accessor :fog_sx                   # fog sx
+  attr_accessor :fog_sy                   # fog sy
+  attr_reader   :fog_ox                   # fog x-coordinate starting point
+  attr_reader   :fog_oy                   # fog y-coordinate starting point
+  attr_reader   :fog_tone                 # fog color tone
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def setup_fog
+    @fog_opacity = 255
+    @fog_blend_type = 0
+    @fog_zoom = 100.0
+    @fog_sx = @fog_sy = 0
+    @fog_ox = @fog_oy = 0
+    @fog_tone = Tone.new(0, 0, 0, 0)
+    @fog_hue_duration = 0
+    @fog_tone_duration = 0
+    @fog_zoom_duration = 0
+    @fog_opacity_duration = 0
+    @fog_display_x = 0
+    @fog_display_y = 0
+    @target_fog_opacity = 0
+    @target_fog_tone = Tone.new(0, 0, 0, 0)
+    @target_fog_zoom = @fog_zoom
+  end
+  #--------------------------------------------------------------------------
+  # * Fog Refresh (when fog is displayable in battle)
+  #--------------------------------------------------------------------------
+  def fog_refresh
+    setup_fog
+    # Use map fog
+    @layers[4].name = $game_map.fog_name
+    @layers[4].hue = 0
+    $game_map.fog_hue != nil ? @layers[4].hue = $game_map.fog_hue : nil
+    # Make equal origin x and origin y from map fog 
+    @fog_ox = $game_map.fog_ox
+    @fog_oy = $game_map.fog_oy
+    fog_refresh_from_map
+  end
+  #--------------------------------------------------------------------------
+  # * Refresh only the sprites
+  #--------------------------------------------------------------------------
+  def fog_refresh_from_map
+    @layers[4].name = $game_map.fog_name
+    @layers[4].hue = 0
+    $game_map.fog_hue != nil ? @layers[4].hue = $game_map.fog_hue : nil
+    @fog_opacity = $game_map.fog_opacity
+    @fog_blend_type = $game_map.fog_blend_type
+    @fog_zoom = $game_map.fog_zoom
+    @fog_sx = $game_map.fog_sx
+    @fog_sy = $game_map.fog_sy
+  end
+  #--------------------------------------------------------------------------
+  # * Start Changing Fog HUE Color
+  #     tone     : color hue
+  #     duration : time
+  #--------------------------------------------------------------------------
+  def fog_hue_change(hue_color, duration)
+    @layers[4].target_hue = hue_color
+    @fog_hue_duration = duration
+    if @fog_hue_duration < 1
+      @layers[4].hue = @layers[4].target_hue
+      @fog_hue_duration = 0
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Start Changing Fog Color Tone
+  #     tone     : color tone
+  #     duration : time
+  #--------------------------------------------------------------------------
+  def fog_tone_change(tone, duration)
+    @target_fog_tone = tone.clone
+    @fog_tone_duration = duration
+    if @fog_tone_duration < 1
+      @fog_tone = @target_fog_tone.clone
+      @fog_tone_duration = 0
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Start Changing Fog Opacity Level
+  #     opacity  : opacity level
+  #     duration : time
+  #--------------------------------------------------------------------------
+  def fog_opacity_change(opacity, duration)
+    @target_fog_opacity = opacity * 1.0
+    @fog_opacity_duration = duration
+    if @fog_opacity_duration < 1
+      @fog_opacity = @target_fog_opacity
+      @fog_opacity_duration = 0
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Start Changing Fog Size
+  #     opacity  : opacity level
+  #     duration : time
+  #--------------------------------------------------------------------------
+  def fog_zoom_change(zoom, duration)
+    @target_fog_zoom = zoom * 1.0
+    @fog_zoom_duration = duration
+    if @fog_zoom_duration < 1
+      @fog_zoom = @target_fog_zoom
+      @fog_zoom_duration = 0
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Start Changing Fog Size
+  #     duration : time
+  #     name     : name
+  #     hue      : hue color
+  #     zoom     : zoom level
+  #     opacity  : opacity level
+  #     blend    : blend type
+  #--------------------------------------------------------------------------
+  def make_fog(duration, name, hue, zoom, opacity, blend)
+    @layers[4].name = name
+    @fog_blend_type = blend
+    # Targets
+    @layers[4].target_hue = hue_color
+    @target_fog_opacity = opacity * 1.0
+    @target_fog_zoom = zoom * 1.0
+    # Durations
+    @fog_hue_duration = duration
+    @fog_opacity_duration = duration
+    @fog_zoom_duration = duration
+    # Compare minimum
+    if (@fog_hue_duration < 1 or
+        @fog_opacity_duration < 1 or
+        @fog_zoom_duration < 1)
+      # Auto set from targets
+      @layers[4].hue = @layers[4].target_hue
+      @fog_opacity = @target_fog_opacity
+      @fog_zoom = @target_fog_zoom
+      # Clear durations
+      @fog_hue_duration = 0
+      @fog_opacity_duration = 0
+      @fog_zoom_duration = 0
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update_fog
+    # Manage fog scrolling
+    @fog_ox -= @fog_sx / 8.0
+    @fog_oy -= @fog_sy / 8.0
+    # Manage change in fog color tone
+    if @fog_tone_duration >= 1
+      d = @fog_tone_duration
+      target = @target_fog_tone
+      @fog_tone.red = (@fog_tone.red * (d - 1) + target.red) / d
+      @fog_tone.green = (@fog_tone.green * (d - 1) + target.green) / d
+      @fog_tone.blue = (@fog_tone.blue * (d - 1) + target.blue) / d
+      @fog_tone.gray = (@fog_tone.gray * (d - 1) + target.gray) / d
+      @fog_tone_duration -= 1
+    end
+    # Manage change in fog size
+    if @fog_zoom_duration >= 1
+      d = @fog_zoom_duration.to_f
+      @fog_zoom = (@fog_zoom * (d - 1) + @target_fog_zoom) / d
+      @fog_zoom_duration -= 1
+    end
+    # Manage change in fog opacity level
+    if @fog_opacity_duration >= 1
+      d = @fog_opacity_duration
+      @fog_opacity = (@fog_opacity * (d - 1) + @target_fog_opacity) / d
+      @fog_opacity_duration -= 1
+    end
+    # Manage change in fog HUE color
+    if @fog_hue_duration > 0
+      @layers[4].hue = (@layers[4].hue * (d - 1) + @layers[4].target_hue) / d
+      @fog_hue_duration -= 0.125
+    end
+    # Manage change in fog animation update
+    if @layers[4].animated == true
+      @layers[4].update
+      update_layer_animation(4)
+    end
+  end
+end
+
+#==============================================================================
+# ** Spriteset_Battle (part 1) (begin and update)
+#------------------------------------------------------------------------------
+#  This class brings together battle screen sprites. It's used within
+#  the Scene_Battle, Game_BattlerSprites and Game_BattleBackgrounds classes.
+#==============================================================================
+
+class Spriteset_Battle
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables
+  #--------------------------------------------------------------------------
+  attr_reader   :viewport1                # enemy viewport
+  attr_reader   :viewport2                # actor viewport
+  attr_reader   :enemy_sprites            # enemy sprites
+  attr_reader   :actor_sprites            # actor sprites
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    # Refresh actors sprites if actors sprites has animated before
+    for actor in $game_party.actors
+      actor.refresh_sprite
+    end
+    if $battle_backs.code_mode
+      $battle_backs.set_code_background
+    end
+    $game_temp.battleback_hue %= 360
+    #------------------------------------------------------------------------
+    # Make viewports
+    @viewport1 = Viewport.new(0, 0, 640, 320)
+    @viewport2 = Viewport.new(0, 0, 640, 480)
+    @viewport3 = Viewport.new(0, 0, 640, 480)
+    @viewport4 = Viewport.new(0, 0, 640, 480)
+    @viewport5 = Viewport.new(0, 0, 640, 480)
+    @viewport6 = Viewport.new(0, 0, 640, 320)
+    @viewport7 = Viewport.new(0, 160, 640, 160)
+    # Make viewports numbers
+    @viewport2.z = 101
+    @viewport3.z = 200
+    @viewport4.z = 300
+    @viewport5.z = 5000
+    @viewport6.z = -100
+    @viewport7.z = -90
+    #------------------------------------------------------------------------
+    # Make static battleback sprite
+    @battleback_sprite = Sprite.new(@viewport1)
+    # Make mobile battleback layers sprites
+    @parallax1 = Plane.new(@viewport6)
+    @parallax2 = Plane.new(@viewport7)
+    @layer1 = Sprite.new
+    @layer2 = Sprite.new
+    @layer3 = Sprite.new
+    #------------------------------------------------------------------------
+    # Load battleback sprite filenames and hue
+    @name1 = $battle_backs.layers[0].name
+    @name2 = $battle_backs.layers[1].name
+    @name3 = $battle_backs.layers[2].name
+    @name4 = $battle_backs.layers[3].name
+    @hue1 = $battle_backs.layers[0].hue
+    @hue2 = $battle_backs.layers[1].hue
+    @hue3 = $battle_backs.layers[2].hue
+    @hue4 = $battle_backs.layers[3].hue
+    #------------------------------------------------------------------------
+    # Make layers bitmap sprites
+    @parallax1.bitmap = RPG::Cache.battlebacks_parallax(@name1, @hue1)
+    @parallax2.bitmap = RPG::Cache.battlebacks_parallax(@name1, @hue1)
+    @layer1.bitmap    = RPG::Cache.battlebacks_bottom(  @name2, @hue2)
+    @layer2.bitmap    = RPG::Cache.battlebacks_bottom(  @name3, @hue3)
+    @layer3.bitmap    = RPG::Cache.battlebacks_other(   @name4, @hue4)
+    @parallax2.zoom_y = 0.25
+    @parallax2.visible = $battle_backs.surface
+    #------------------------------------------------------------------------
+    # Make start coordinates of battleback (layer 1)
+    @layer1.ox = @layer1.bitmap.width / 2
+    @layer1.oy = @layer1.bitmap.height
+    @layer1.x = 320
+    @layer1.y = 480
+    @layer1.z = -60
+    @layer1.src_rect.set(0, 0, 640, 160)
+    @layer1.blend_type = 1
+    #------------------------------------------------------------------------
+    # Make start coordinates of battleback (layer 2)
+    @layer2.ox = @layer2.bitmap.width / 2
+    @layer2.oy = @layer2.bitmap.height / 2
+    @layer2.x = 320
+    @layer2.y = 272
+    @layer2.z = -50
+    @layer2.blend_type = 1
+    #------------------------------------------------------------------------
+    # Make start coordinates of battleback (layer 3)
+    @layer3.ox = @layer3.bitmap.width / 2
+    @layer3.oy = @layer3.bitmap.height / 2
+    @layer3.x = 320
+    @layer3.y = 240
+    @layer3.z = -70
+    @layer3.blend_type = 0
+    #------------------------------------------------------------------------
+    # Regular parallax background variables
+    @scroll_anime = 0
+    @scroll_chrome = 0
+    #------------------------------------------------------------------------
+    # Make enemy sprites
+    @enemy_sprites = []
+    @bottom_shadow_name = []
+    for enemy in $game_troop.enemies.reverse
+      @enemy_sprites.push(Sprite_Battler.new(@viewport1, enemy))
+      name = enemy.bottom_shadow_name
+      @bottom_shadow_name.push(name)
+      # Set bottom shadow sprite of self enemy
+      if name == ""
+        enemy.bottom_shadow.bitmap = auto_enemy_shadow
+      else
+        enemy.bottom_shadow.bitmap = RPG::Cache.battlershadow(name)
+      end
+      enemy.bottom_shadow.ox = enemy.bottom_shadow.bitmap.width / 2
+      enemy.bottom_shadow.oy = enemy.bottom_shadow.bitmap.height
+      enemy.bottom_shadow.x = enemy.screen_x
+      enemy.bottom_shadow.y = enemy.screen_y
+      enemy.bottom_shadow.opacity = 0
+    end
+    #------------------------------------------------------------------------
+    # Make actor sprites
+    @actor_sprites = []
+    @actor_sprites.push(Sprite_Battler.new(@viewport2))
+    @actor_sprites.push(Sprite_Battler.new(@viewport2))
+    @actor_sprites.push(Sprite_Battler.new(@viewport2))
+    @actor_sprites.push(Sprite_Battler.new(@viewport2))
+    # Get battlers sprites from party actors
+    update_actors_contents
+    # Update actors sprites
+    for sprite in @actor_sprites
+      sprite.first_update
+    end
+    #------------------------------------------------------------------------
+    # Make fog from $game_map
+    $battle_backs.fog_refresh
+    # Make fog plane
+    @fog = Plane.new(@viewport1)
+    @fog.z = 3000
+    # Make weather
+    @weather = RPG::Weather.new(@viewport1)
+    #------------------------------------------------------------------------
+    # Make picture sprites
+    @picture_sprites = []
+    # Make face picture sprites
+    @face_sprites = []
+    for i in 51..100
+      @picture_sprites.push(Sprite_Picture.new(@viewport3, $pictures[i]))
+      @face_sprites.push(Sprite_Face.new(@viewport4, $faces[i]))
+    end
+    #------------------------------------------------------------------------
+    # Frame update
+    update
+  end
+  #--------------------------------------------------------------------------
+  # * Dispose
+  #--------------------------------------------------------------------------
+  def dispose
+    # Dispose of enemy sprites and actor sprites
+    for sprite in @enemy_sprites + @actor_sprites
+      sprite.dispose
+    end
+    # Dispose of picture sprites and face sprites
+    for sprite in @picture_sprites + @face_sprites
+      sprite.dispose
+    end
+    #------------------------------------------------------------------------
+    # Dispose of viewports
+    @viewport2.dispose
+    @viewport3.dispose
+    @viewport4.dispose
+    @viewport5.dispose
+    @viewport6.dispose
+    @viewport7.dispose
+    #------------------------------------------------------------------------
+    # If battleback bit map exists, dispose of it
+    if @battleback_sprite.bitmap != nil
+      @battleback_sprite.bitmap.dispose
+    end
+    # Dispose of backgrounds layers
+    if @layer1.bitmap != nil
+      @layer1.bitmap.dispose
+    end
+    if @layer2.bitmap != nil
+      @layer2.bitmap.dispose
+    end
+    if @layer3.bitmap != nil
+      @layer3.bitmap.dispose
+    end
+    #------------------------------------------------------------------------
+    # Dispose of battleback sprite
+    @battleback_sprite.dispose
+    @layer1.dispose
+    @layer2.dispose
+    @layer3.dispose
+    @parallax1.dispose
+    @parallax2.dispose
+    # Dispose of fog plane
+    @fog.dispose
+    # Dispose of weather
+    @weather.dispose
+  end
+  #--------------------------------------------------------------------------
+  # * Determine if Effects are Displayed
+  #--------------------------------------------------------------------------
+  def effect?
+    # Return true if even 1 effect is being displayed
+    for sprite in @enemy_sprites + @actor_sprites
+      return true if sprite.effect?
+    end
+    return false
+  end
+  #--------------------------------------------------------------------------
+  # * Determine if Effects are Displayed
+  #--------------------------------------------------------------------------
+  def actors_effect?
+    # Return true if even 1 effect is being displayed
+    for sprite in @actor_sprites
+      return true if sprite.effect?
+    end
+    return false
+  end
+  #--------------------------------------------------------------------------
+  # * Determine if Effects are Displayed
+  #--------------------------------------------------------------------------
+  def enemies_effect?
+    # Return true if even 1 effect is being displayed
+    for sprite in @enemy_sprites
+      return true if sprite.effect?
+    end
+    return false
+  end
+  #--------------------------------------------------------------------------
+  # * Auto Call Game_BattleBackgronds
+  #--------------------------------------------------------------------------
+  def bbacks
+    return $battle_backs
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update
+    update_actors_contents
+    #------------------------------------------------------------------------
+    # If battleback file name is different from current one
+    if (@battleback_name != $game_temp.battleback_name or
+        @battleback_hue != $game_temp.battleback_hue)
+      # Set battleback name and battleback hue
+      @battleback_name = $game_temp.battleback_name
+      @battleback_hue = $game_temp.battleback_hue
+      if @battleback_sprite.bitmap != nil
+        @battleback_sprite.bitmap.dispose
+      end
+      name = @battleback_name
+      hue = @battleback_hue
+      @battleback_sprite.bitmap = RPG::Cache.battleback(name, hue)
+      @battleback_sprite.src_rect.set(0, 0, 640, 320)
+    end
+    #------------------------------------------------------------------------
+    # Update weather graphic
+    @weather.type = $game_screen.weather_type
+    @weather.max = $game_screen.weather_max
+    @weather.update
+    #------------------------------------------------------------------------
+    # Update picture sprites and face sprites
+    for sprite in @picture_sprites + @face_sprites
+      sprite.update
+    end
+    # Update battler sprites
+    for sprite in @actor_sprites + @enemy_sprites
+      sprite.update
+    end
+    #------------------------------------------------------------------------
+    # Update enemy bottom shadow sprites
+    for i in 0...$game_troop.enemies.size
+      enemy = $game_troop.enemies[i]
+      enemy.bottom_shadow.x = enemy.screen_x + enemy.x_move
+      enemy.bottom_shadow.y = enemy.screen_y
+      j = ($game_troop.enemies.size - 1) - i
+      enemy.bottom_shadow.opacity = @enemy_sprites[j].opacity
+      # If enemy bottom shadow file name is different from current one
+      if @bottom_shadow_name[i] != enemy.bottom_shadow_name
+        @bottom_shadow_name[i] = enemy.bottom_shadow_name
+        name = @bottom_shadow_name[i]
+        if name == ""
+          enemy.bottom_shadow.bitmap = auto_enemy_shadow
+        else
+          enemy.bottom_shadow.bitmap = RPG::Cache.battlershadow(name)
+        end
+        enemy.bottom_shadow.ox = enemy.bottom_shadow.bitmap.width / 2
+        enemy.bottom_shadow.oy = enemy.bottom_shadow.bitmap.height
+      end
+    end
+    #------------------------------------------------------------------------
+    # Set screen color tone and shake position
+    @viewport1.tone = $game_screen.tone
+    @viewport1.ox = $game_screen.shake
+    # Set screen flash color
+    @viewport5.color = $game_screen.flash_color
+    # Update viewports
+    @viewport1.update
+    @viewport2.update
+    @viewport5.update
+    @viewport6.update
+    @viewport7.update
+    #------------------------------------------------------------------------
+    # Update battle backgrounds
+    $battle_backs.update
+    # Make displayable battle backgrounds
+    if $battle_backs.in_layers == true
+      update_background
+      @parallax1.visible = true
+      @parallax2.visible = $battle_backs.surface
+      @layer1.visible = true
+      @layer2.visible = true
+      @layer3.visible = $battle_backs.symbol_visible
+      @battleback_sprite.visible = false
+    else
+      @parallax1.visible = false
+      @parallax2.visible = false
+      @layer1.visible = false
+      @layer2.visible = false
+      @layer3.visible = false
+      @battleback_sprite.visible = true
+    end
+    # Make displayable fog in battle
+    if $battle_backs.fog_visible == true
+      @fog.visible = true
+      update_fog_sprite
+    else
+      @fog.visible = false
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update_fog_sprite
+    # If fog is different than current fog
+    if (@fog_name != bbacks.layers[4].name or @fog_hue != bbacks.layers[4].hue)
+      @fog_name = $battle_backs.layers[4].name
+      @fog_hue = $battle_backs.layers[4].hue
+      if @fog.bitmap != nil
+        @fog.bitmap.dispose
+        @fog.bitmap = nil
+      end
+      if @fog_name != ""
+        @fog.bitmap = RPG::Cache.fog(@fog_name, @fog_hue)
+      end
+      Graphics.frame_reset
+    end
+    # Update fog plane
+    @fog.zoom_x = $battle_backs.fog_zoom / 100.0
+    @fog.zoom_y = $battle_backs.fog_zoom / 100.0
+    @fog.opacity = $battle_backs.fog_opacity
+    @fog.blend_type = $battle_backs.fog_blend_type
+    @fog.tone = $battle_backs.fog_tone
+    @fog.ox = $battle_backs.fog_display_x / 4 + $battle_backs.fog_ox
+    @fog.oy = $battle_backs.fog_display_y / 4 + $battle_backs.fog_oy
+    @fog.tone = $battle_backs.fog_tone
+  end
+end
+
+#==============================================================================
+# ** Spriteset_Battle (part 2) (background parallax performs)
+#------------------------------------------------------------------------------
+#  This class brings together battle screen sprites. It's used within
+#  the Scene_Battle, Game_BattlerSprites and Game_BattleBackgrounds classes.
+#==============================================================================
+
+class Spriteset_Battle
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def auto_enemy_shadow
+    color1 = Color.new(104, 104, 152, 160)
+    color2 = Color.new(48, 48, 72, 255)
+    #------------------------------------------------------------------------
+    xar1 = [ 27, 18, 15, 11,  8,  6,  4,  3,  2,  1] ;s = xar1.size
+    xar1[s,0] = [0, 0] ;s = xar1.size
+    xar1[s,0] = xar1.reverse
+    wtar1 = [ 18, 32, 42, 50, 56, 60, 64, 66, 68, 70] ;s = wtar1.size
+    wtar1[s,0] = [72, 72] ;s = wtar1.size
+    wtar1[s,0] = wtar1.reverse
+    #------------------------------------------------------------------------
+    xar2 = [nil, 29, 23, 19, 16, 13, 11,  9,  8,  7] ;s = xar2.size
+    xar2[s,0] = [6, 6] ;s = xar2.size
+    xar2[s,0] = xar2.reverse
+    wtar2 = [nil, 14, 26, 34, 40, 46, 50, 54, 56, 58] ;s = wtar2.size
+    wtar2[s,0] = [60, 60] ;s = wtar2.size
+    wtar2[s,0] = wtar2.reverse
+    #------------------------------------------------------------------------
+    bitmap = Bitmap.new(72, 24)
+    for i in 0..23
+      bitmap.fill_rect(xar1[i], i, wtar1[i], 1, color1)
+      if xar2[i] != nil and wtar2[i] != nil
+        bitmap.fill_rect(xar2[i], i, wtar2[i], 1, color2)
+      end
+    end
+    return bitmap
+  end
+  #--------------------------------------------------------------------------
+  # * Update Actor Sprite Contents
+  #--------------------------------------------------------------------------
+  def update_actors_contents
+    # Update actor sprite contents (corresponds with actor switching)
+    @actor_sprites[0].battler = $game_party.actors[0]
+    @actor_sprites[1].battler = $game_party.actors[1]
+    @actor_sprites[2].battler = $game_party.actors[2]
+    @actor_sprites[3].battler = $game_party.actors[3]
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update_enemies_sprites
+    for sprite in @enemy_sprites
+      sprite.update
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Set damage graphic
+  #     name : font name
+  #     size : font size
+  #--------------------------------------------------------------------------
+  def damage_default(name, size)
+    for sprite in @enemy_sprites + @actor_sprites
+      sprite.damage_font(name, size)
+    end
+    $game_system.damage(name, size)
+  end
+  #--------------------------------------------------------------------------
+  # * Set damage graphic
+  #     id      : battler id
+  #     battler : enemy or actor
+  #     name    : font name
+  #     size    : font size
+  #--------------------------------------------------------------------------
+  def self_damage(id, battler, name, size)
+    case battler
+    when 0
+      if @actor_sprites[id] != nil
+        @actor_sprites[id].damage_font(name, size)
+      end
+    else
+      if @enemy_sprites[id] != nil
+        @enemy_sprites[id].damage_font(name, size)
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update (Background Sprites)
+  #--------------------------------------------------------------------------
+  def update_background
+    # If parallax file name is different from current one
+    if (@name1 != bbacks.layers[0].name or @hue1 != bbacks.layers[0].hue)
+      @name1 = $battle_backs.layers[0].name
+      @hue1 = $battle_backs.layers[0].hue
+      if @parallax1.bitmap != nil
+        @parallax1.bitmap.dispose
+      end
+      if @parallax2.bitmap != nil
+        @parallax2.bitmap.dispose
+      end
+      if @name1 != ""
+        bitmap = RPG::Cache.battlebacks_parallax(@name1, @hue1)
+        @parallax1.bitmap = bitmap
+        @parallax2.bitmap = bitmap
+      end
+    end
+    #------------------------------------------------------------------------
+    # If bottom file name is different from current one
+    if (@name2 != bbacks.layers[1].name or @hue2 != bbacks.layers[1].hue)
+      @name2 = $battle_backs.layers[1].name
+      @hue2 = $battle_backs.layers[1].hue
+      if @layer1.bitmap != nil
+        @layer1.bitmap.dispose
+      end
+      if @name2 != ""
+        bitmap = RPG::Cache.battlebacks_bottom(@name2, @hue2)
+        @layer1.bitmap = bitmap
+        @layer1.src_rect.set(0, 0, 640, 160)
+      end
+    end
+    #------------------------------------------------------------------------
+    # If shadow file name is different from current one
+    if (@name3 != bbacks.layers[2].name or @hue3 != bbacks.layers[2].hue)
+      @name3 = $battle_backs.layers[2].name
+      @hue3 = $battle_backs.layers[2].hue
+      if @layer2.bitmap != nil
+        @layer2.bitmap.dispose
+      end
+      if @name3 != ""
+        bitmap = RPG::Cache.battlebacks_bottom(@name3, @hue3)
+        @layer2.bitmap = bitmap
+        @layer2.src_rect.set(0, 0, 640, 160)
+      end
+    end
+    #------------------------------------------------------------------------
+    # If symbol file name is different from current one
+    if (@name4 != bbacks.layers[3].name or @hue4 != bbacks.layers[3].hue)
+      @name4 = $battle_backs.layers[3].name
+      @hue4 = $battle_backs.layers[3].hue
+      if @layer3.bitmap != nil
+        @layer3.bitmap.dispose
+      end
+      if @name4 != ""
+        bitmap = RPG::Cache.battlebacks_other(@name4, @hue4)
+        @layer3.bitmap = bitmap
+        @layer3.ox = @layer3.bitmap.width / 2
+        @layer3.oy = @layer3.bitmap.height / 2
+      end
+    end
+    #------------------------------------------------------------------------
+    # Manage symbol performs
+    @layer3.x = bbacks.symbol_x
+    @layer3.y = bbacks.symbol_y
+    @layer3.angle = bbacks.symbol_angle
+    @layer3.zoom_x = bbacks.symbol_zoom_x / 100.0
+    @layer3.zoom_y = bbacks.symbol_zoom_y / 100.0
+    @layer3.opacity = bbacks.symbol_opacity
+    #------------------------------------------------------------------------
+    # Update battle backgrounds moviments
+    update_anime_type_parallax
+    # Update battle backgrounds colors
+    update_chrome_type_parallax
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update (Parallax Animations)
+  #--------------------------------------------------------------------------
+  def update_anime_type_parallax
+    # Branch by anime_type value
+    case $battle_backs.anime_type
+    when 0     # Regular scrolling
+      @parallax1.ox = @parallax1.ox + bbacks.scroll_speed_x
+      @parallax1.oy = @parallax1.oy + bbacks.scroll_speed_y
+    #------------------------------------------------------------------------
+    when 1     # Harmonic scrolling(x only)
+      @scroll_anime = (@scroll_anime + 0.01) % (Math::PI * 4)
+      speed_x = bbacks.scroll_speed_x * 4.0
+      # Set parallax scroll speeds
+      @parallax1.oy = @parallax1.oy + bbacks.scroll_speed_y
+      @parallax1.ox = (speed_x * Math.sin(@scroll_anime))
+    #------------------------------------------------------------------------
+    when 2     # Harmonic scrolling(y only)
+      @scroll_anime = (@scroll_anime + 0.01) % (Math::PI * 4)
+      speed_y = bbacks.scroll_speed_y * 4.0
+      # Set parallax scroll speeds
+      @parallax1.ox = @parallax1.ox + bbacks.scroll_speed_x
+      @parallax1.oy = (speed_y * Math.sin(@scroll_anime))
+    #------------------------------------------------------------------------
+    when 3     # Harmonic scrolling(x and y)
+      @scroll_anime = (@scroll_anime + 0.01) % (Math::PI * 4)
+      speed_x = bbacks.scroll_speed_x * 8
+      speed_y = bbacks.scroll_speed_y * 8
+      # Set parallax scroll speeds
+      @parallax1.ox = (speed_x * Math.sin(@scroll_anime))
+      @parallax1.oy = (speed_y * Math.sin(@scroll_anime + 180))
+    #------------------------------------------------------------------------
+    when 4     # Harmonic orb
+      @scroll_anime = (@scroll_anime + 0.02) % (Math::PI * 4)
+      speed_x = bbacks.scroll_speed_x * 12
+      speed_y = bbacks.scroll_speed_y * 12
+      # Set parallax scroll speeds
+      @parallax1.ox = (speed_x * Math.cos(@scroll_anime))
+      @parallax1.oy = (speed_y * Math.sin(@scroll_anime))
+    #------------------------------------------------------------------------
+    when 5     # Flexible background(only x)
+      @scroll_anime = (@scroll_anime + 0.005) % (Math::PI * 4)
+      speed_x = ([-90, [bbacks.scroll_speed_x, 90].min].max) / 100.0
+      # Set parallax scroll x speed
+      @parallax1.zoom_x = 1.0 + (speed_x * Math.sin(@scroll_anime))
+    #------------------------------------------------------------------------
+    when 6     # Flexible background(only y)
+      @scroll_anime = (@scroll_anime + 0.005) % (Math::PI * 4)
+      speed_y = ([-90, [bbacks.scroll_speed_y, 90].min].max) / 100.0
+      # Set parallax scroll y speed
+      @parallax1.zoom_y = 1.0 + (speed_y * Math.sin(@scroll_anime))
+    #------------------------------------------------------------------------
+    when 7     # Flexible background(x and y)
+      @scroll_anime = (@scroll_anime + 0.005) % (Math::PI * 4)
+      # Set max and min scroll speeds
+      speed_x = ([-90, [bbacks.scroll_speed_x, 90].min].max) / 100.0
+      speed_y = ([-90, [bbacks.scroll_speed_y, 90].min].max) / 100.0
+      # Set parallax scroll speeds
+      @parallax1.zoom_x = 1.0 + (speed_x * Math.sin(@scroll_anime))
+      @parallax1.zoom_y = 1.0 + (speed_y * Math.sin(@scroll_anime))
+    #------------------------------------------------------------------------
+    when 99    # Return to natural moviment
+      @parallax1.ox = 0
+      @parallax1.oy = 0
+      $battle_backs.anime_type = 0
+    end
+    #------------------------------------------------------------------------
+    # Tight: to fix surface parallax:
+    # 1/4 of background parallax height and scroll
+    tight = (160 % (@parallax1.bitmap.height))
+    @parallax2.ox = @parallax1.ox
+    @parallax2.oy = (@parallax1.oy / 4.0) + (tight / 4.0)
+    @parallax2.zoom_x = @parallax1.zoom_x
+    @parallax2.zoom_y = (@parallax1.zoom_y) / 4.0
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update (Parallax Colors)
+  #--------------------------------------------------------------------------
+  def update_chrome_type_parallax
+    # Update blend type
+    @layer1.blend_type = bbacks.blend_bottom
+    @layer2.blend_type = bbacks.blend_shadow
+    @layer3.blend_type = bbacks.blend_symbol
+    # Fix color tones
+    tone = Tone.new(0, 0, 0, 0)
+    @layer1.tone = (@layer1.blend_type == 0 ? bbacks.tone : tone)
+    @layer2.tone = (@layer2.blend_type == 0 ? bbacks.tone : tone)
+    @layer3.tone = (@layer3.blend_type == 0 ? bbacks.symbol_tone : tone)
+    @viewport5.tone = bbacks.tone
+    @viewport7.tone = bbacks.tone
+    @battleback_sprite.tone = bbacks.tone
+    #------------------------------------------------------------------------
+    if bbacks.chrome_type != nil
+      if bbacks.chrome_type.between?(9, 16)
+        acc = bbacks.chrome_acc
+        @scroll_chrome = (@scroll_chrome + acc) % (Math::PI * 4)
+        amp0 = 0 + (bbacks.amp_tone * Math.sin(@scroll_chrome))
+      end
+    else
+      return
+    end
+    # Branch by chrome_type value
+    case $battle_backs.chrome_type
+    #------------------------------------------------------------------------
+    when 8     # Make gray tone
+      acc = bbacks.chrome_acc
+      @scroll_chrome = (@scroll_chrome + acc) % (Math::PI * 4)
+      amp0 = bbacks.amp_tone
+      amp1 = amp0 + ((amp0 / 2.0) * Math.sin(@scroll_chrome))
+      tone = Tone.new(0, 0, 0, amp1)
+    #------------------------------------------------------------------------
+    when 9     # Shine tone and monochrome
+      tone = Tone.new(amp0, amp0, amp0, amp0)
+    when 10    # Shining tone
+      tone = Tone.new(amp0, amp0, amp0, 0)
+    when 11    # Red tone
+      tone = Tone.new(amp0, 0, 0, 0)
+    when 12    # Green tone
+      tone = Tone.new(0, amp0, 0, 0)
+    when 13    # Blue tone
+      tone = Tone.new(0, 0, amp0, 0)
+    when 14    # Grey red tone
+      tone = Tone.new(amp0, 0, 0, 255)
+    when 15    # Grey green tone
+      tone = Tone.new(0, amp0, 0, 255)
+    when 16    # Grey blue tone
+      tone = Tone.new(0, 0, amp0, 255)
+    end
+    #------------------------------------------------------------------------
+    if $battle_backs.chrome_type.between?(8, 16)
+      $battle_backs.tone_change(tone, 0) 
+    end
+  end
+end
+
+#==============================================================================
+# ** Scene_Battle (part 1)
+#------------------------------------------------------------------------------
+#  This class performs battle screen processing.
+#==============================================================================
+
+class Scene_Battle
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    if $battle_backs == nil
+      $battle_backs = Game_BattleBackgrounds.new
+    end
+  end
+end
