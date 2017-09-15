@@ -1,4 +1,32 @@
 #==============================================================================
+# ** Module::RPG::Cache
+#------------------------------------------------------------------------------
+#  This script is used to create graphics where no exist by default.
+#  Graphics of background menus, battle back layers, face pictures, etc...
+#==============================================================================
+
+module RPG
+  module Cache
+    # Use graphics of folder (Small sprites)
+    def self.battlebacks_other(filename, hue)
+      self.load_bitmap("Graphics/Battlebacks/Other/", filename, hue)
+    end
+    # Use graphics of folder (Bottoms)
+    def self.battlebacks_bottom(filename, hue)
+      self.load_bitmap("Graphics/Battlebacks/Bottom/", filename, hue)
+    end
+    # Use graphics of folder (Parallaxes)
+    def self.battlebacks_parallax(filename, hue)
+      self.load_bitmap("Graphics/Battlebacks/Parallax/", filename, hue)
+    end
+    # Use graphics of folder (Battlers Shadow)
+    def self.battlershadow(filename)
+      self.load_bitmap("Graphics/Battlers/Battlershadow/", filename.to_s)
+    end
+  end
+end
+
+#==============================================================================
 # ** Animated_RegularSprites
 #------------------------------------------------------------------------------
 #  This class handles to display regular animated sprites.
@@ -1242,13 +1270,6 @@ class Spriteset_Battle
   # * Object Initialization
   #--------------------------------------------------------------------------
   def initialize
-    # Refresh actors sprites if actors sprites has animated before
-    for actor in $game_party.actors
-      actor.refresh_sprite
-    end
-    if $battle_backs.code_mode
-      $battle_backs.set_code_background
-    end
     $game_temp.battleback_hue %= 360
     #------------------------------------------------------------------------
     # Make viewports
@@ -1326,22 +1347,8 @@ class Spriteset_Battle
     #------------------------------------------------------------------------
     # Make enemy sprites
     @enemy_sprites = []
-    @bottom_shadow_name = []
     for enemy in $game_troop.enemies.reverse
       @enemy_sprites.push(Sprite_Battler.new(@viewport1, enemy))
-      name = enemy.bottom_shadow_name
-      @bottom_shadow_name.push(name)
-      # Set bottom shadow sprite of self enemy
-      if name == ""
-        enemy.bottom_shadow.bitmap = auto_enemy_shadow
-      else
-        enemy.bottom_shadow.bitmap = RPG::Cache.battlershadow(name)
-      end
-      enemy.bottom_shadow.ox = enemy.bottom_shadow.bitmap.width / 2
-      enemy.bottom_shadow.oy = enemy.bottom_shadow.bitmap.height
-      enemy.bottom_shadow.x = enemy.screen_x
-      enemy.bottom_shadow.y = enemy.screen_y
-      enemy.bottom_shadow.opacity = 0
     end
     #------------------------------------------------------------------------
     # Make actor sprites
@@ -1352,10 +1359,6 @@ class Spriteset_Battle
     @actor_sprites.push(Sprite_Battler.new(@viewport2))
     # Get battlers sprites from party actors
     update_actors_contents
-    # Update actors sprites
-    for sprite in @actor_sprites
-      sprite.first_update
-    end
     #------------------------------------------------------------------------
     # Make fog from $game_map
     $battle_backs.fog_refresh
@@ -1367,11 +1370,9 @@ class Spriteset_Battle
     #------------------------------------------------------------------------
     # Make picture sprites
     @picture_sprites = []
-    # Make face picture sprites
-    @face_sprites = []
     for i in 51..100
-      @picture_sprites.push(Sprite_Picture.new(@viewport3, $pictures[i]))
-      @face_sprites.push(Sprite_Face.new(@viewport4, $faces[i]))
+      @picture_sprites.push(Sprite_Picture.new(@viewport3,
+        $game_screen.pictures[i]))
     end
     #------------------------------------------------------------------------
     # Frame update
@@ -1386,7 +1387,7 @@ class Spriteset_Battle
       sprite.dispose
     end
     # Dispose of picture sprites and face sprites
-    for sprite in @picture_sprites + @face_sprites
+    for sprite in @picture_sprites
       sprite.dispose
     end
     #------------------------------------------------------------------------
@@ -1488,33 +1489,12 @@ class Spriteset_Battle
     @weather.update
     #------------------------------------------------------------------------
     # Update picture sprites and face sprites
-    for sprite in @picture_sprites + @face_sprites
+    for sprite in @picture_sprites
       sprite.update
     end
     # Update battler sprites
     for sprite in @actor_sprites + @enemy_sprites
       sprite.update
-    end
-    #------------------------------------------------------------------------
-    # Update enemy bottom shadow sprites
-    for i in 0...$game_troop.enemies.size
-      enemy = $game_troop.enemies[i]
-      enemy.bottom_shadow.x = enemy.screen_x + enemy.x_move
-      enemy.bottom_shadow.y = enemy.screen_y
-      j = ($game_troop.enemies.size - 1) - i
-      enemy.bottom_shadow.opacity = @enemy_sprites[j].opacity
-      # If enemy bottom shadow file name is different from current one
-      if @bottom_shadow_name[i] != enemy.bottom_shadow_name
-        @bottom_shadow_name[i] = enemy.bottom_shadow_name
-        name = @bottom_shadow_name[i]
-        if name == ""
-          enemy.bottom_shadow.bitmap = auto_enemy_shadow
-        else
-          enemy.bottom_shadow.bitmap = RPG::Cache.battlershadow(name)
-        end
-        enemy.bottom_shadow.ox = enemy.bottom_shadow.bitmap.width / 2
-        enemy.bottom_shadow.oy = enemy.bottom_shadow.bitmap.height
-      end
     end
     #------------------------------------------------------------------------
     # Set screen color tone and shake position
@@ -1594,36 +1574,6 @@ end
 
 class Spriteset_Battle
   #--------------------------------------------------------------------------
-  # * Frame Update
-  #--------------------------------------------------------------------------
-  def auto_enemy_shadow
-    color1 = Color.new(104, 104, 152, 160)
-    color2 = Color.new(48, 48, 72, 255)
-    #------------------------------------------------------------------------
-    xar1 = [ 27, 18, 15, 11,  8,  6,  4,  3,  2,  1] ;s = xar1.size
-    xar1[s,0] = [0, 0] ;s = xar1.size
-    xar1[s,0] = xar1.reverse
-    wtar1 = [ 18, 32, 42, 50, 56, 60, 64, 66, 68, 70] ;s = wtar1.size
-    wtar1[s,0] = [72, 72] ;s = wtar1.size
-    wtar1[s,0] = wtar1.reverse
-    #------------------------------------------------------------------------
-    xar2 = [nil, 29, 23, 19, 16, 13, 11,  9,  8,  7] ;s = xar2.size
-    xar2[s,0] = [6, 6] ;s = xar2.size
-    xar2[s,0] = xar2.reverse
-    wtar2 = [nil, 14, 26, 34, 40, 46, 50, 54, 56, 58] ;s = wtar2.size
-    wtar2[s,0] = [60, 60] ;s = wtar2.size
-    wtar2[s,0] = wtar2.reverse
-    #------------------------------------------------------------------------
-    bitmap = Bitmap.new(72, 24)
-    for i in 0..23
-      bitmap.fill_rect(xar1[i], i, wtar1[i], 1, color1)
-      if xar2[i] != nil and wtar2[i] != nil
-        bitmap.fill_rect(xar2[i], i, wtar2[i], 1, color2)
-      end
-    end
-    return bitmap
-  end
-  #--------------------------------------------------------------------------
   # * Update Actor Sprite Contents
   #--------------------------------------------------------------------------
   def update_actors_contents
@@ -1639,36 +1589,6 @@ class Spriteset_Battle
   def update_enemies_sprites
     for sprite in @enemy_sprites
       sprite.update
-    end
-  end
-  #--------------------------------------------------------------------------
-  # * Set damage graphic
-  #     name : font name
-  #     size : font size
-  #--------------------------------------------------------------------------
-  def damage_default(name, size)
-    for sprite in @enemy_sprites + @actor_sprites
-      sprite.damage_font(name, size)
-    end
-    $game_system.damage(name, size)
-  end
-  #--------------------------------------------------------------------------
-  # * Set damage graphic
-  #     id      : battler id
-  #     battler : enemy or actor
-  #     name    : font name
-  #     size    : font size
-  #--------------------------------------------------------------------------
-  def self_damage(id, battler, name, size)
-    case battler
-    when 0
-      if @actor_sprites[id] != nil
-        @actor_sprites[id].damage_font(name, size)
-      end
-    else
-      if @enemy_sprites[id] != nil
-        @enemy_sprites[id].damage_font(name, size)
-      end
     end
   end
   #--------------------------------------------------------------------------
