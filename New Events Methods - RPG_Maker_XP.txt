@@ -507,10 +507,7 @@ class Interpreter
   #--------------------------------------------------------------------------
   # * Auto Call Main or Other Game_Event
   #--------------------------------------------------------------------------
-  def event2(id=0)
-    if $game_map.events[id] != nil
-      return $game_map.events[id]
-    end
-    return $game_map.events[@event_id]
+  def main_event
+    return get_character(0)
   end
 end
