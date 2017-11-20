@@ -29,7 +29,7 @@ class Game_Teleports
   #     active : active teleport process (flag)
   #--------------------------------------------------------------------------
   def active=active
-    active != true ? @active = false : @active = true
+    @active = (active == true)
   end
   #--------------------------------------------------------------------------
   # * Set Teleport Destination Index
