@@ -81,7 +81,7 @@ class IconsName_Displayer
   def set_zoom(zoom)
     # Not work while exist icons displaying
     return if @icon_amount > 0
-    super(zoom)
+    @zoom = (zoom.is_a?(Numeric) ? zoom.abs.to_i : 2)
   end
   #--------------------------------------------------------------------------
   # * Set Pattern Duration Time for All Sprites
