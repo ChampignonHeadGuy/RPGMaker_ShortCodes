@@ -1,0 +1,479 @@
+#==============================================================================
+# ** IconsName_Displayer
+#------------------------------------------------------------------------------
+#  This class performs to print several icons (items, weapons, armors or skills)
+#  Can display name of last icon displayed.
+#==============================================================================
+
+class IconsName_Displayer
+  #--------------------------------------------------------------------------
+  # * Public Instance Variables
+  #--------------------------------------------------------------------------
+  attr_reader   :end_display              # end sprites display flag
+  attr_accessor :reload                   # restart icons display
+  attr_accessor :max_amount               # max icons display
+  attr_accessor :limit_icons              # max icons display flag
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    @end_display = false
+    # Initialize all pattern variables (for all sprites)
+    @x = 320
+    @y = 240
+    @target_y = 400
+    @zoom = 0.0
+    @target_zoom = 2.0
+    @opacity = 0
+    @target_opacity = 255
+    @duration = 20
+    # Initialize all sprite variables (per sprite)
+    @sprites = {}
+    @sprites["phase"] = []
+    @sprites["phase_wait"] = []
+    @sprites["end"] = []
+    @sprites["sprite"] = []
+    @sprites["y"] = []
+    @sprites["zoom"] = []
+    @sprites["Tzoom"] = []
+    @sprites["opacity"] = []
+    @sprites["Topacity"] = []
+    @sprites["duration"] = []
+    @limit_icons = false
+    @reload = true
+    @icon_amount = 0
+    @max_amount = 12
+    # Initialize name display
+    initialize_icon_name
+  end
+  #--------------------------------------------------------------------------
+  # * Clear All Sprites Variables
+  #--------------------------------------------------------------------------
+  def clear
+    for sprite in @sprites.values
+      sprite.is_a?(Array) ? sprite.clear : nil
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Get Amount of Icons
+  #--------------------------------------------------------------------------
+  def icon_number
+    return @icon_amount
+  end
+  #--------------------------------------------------------------------------
+  # * Get Amount of Sprites
+  #--------------------------------------------------------------------------
+  def sprite_number
+    return @sprites["sprite"].size
+  end
+  #--------------------------------------------------------------------------
+  # * Clear First Icons Variables
+  #--------------------------------------------------------------------------
+  def remove_first_icon
+    for sprite in @sprites.values
+      sprite.is_a?(Array) ? sprite.shift : nil
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Set Target Zoom
+  #     zoom : zoom
+  #--------------------------------------------------------------------------
+  def set_zoom(zoom)
+    # Not work while exist icons displaying
+    return if @icon_amount > 0
+    super(zoom)
+  end
+  #--------------------------------------------------------------------------
+  # * Set Pattern Duration Time for All Sprites
+  #     duration : time
+  #--------------------------------------------------------------------------
+  def set_duration(duration)
+    # Not work while exist icons displaying
+    return if @icon_amount > 0
+    @duration = (duration.is_a?(Numeric) ? duration.abs.to_i : 20)
+  end
+  #--------------------------------------------------------------------------
+  # * Set Y position (Origin and Destiny) (for All Sprites)
+  #     origin  : y origin position
+  #     destiny : y destiny position
+  #--------------------------------------------------------------------------
+  def set_y(origin, destiny)
+    # Not work while exist icons displaying
+    return if @icon_amount > 0
+    @y = (origin.is_a?(Numeric) ? origin.abs.to_i : 240)
+    @target_y = (destiny.is_a?(Numeric) ? destiny.abs.to_i : 400)
+  end
+  #--------------------------------------------------------------------------
+  # * Set Target Opacity
+  #     opacity : opacity level
+  #--------------------------------------------------------------------------
+  def set_opacity(opacity)
+    # Not work while exist icons displaying
+    return if @icon_amount > 0
+    @target_opacity = (opacity.is_a?(Numeric) ? opacity.abs.to_i : 255)
+  end
+  #--------------------------------------------------------------------------
+  # * Set Pattern Ajustments for All Sprites
+  #     duration : time
+  #     zoom     : zoom
+  #     origin   : y origin position
+  #     destiny  : y destiny position
+  #--------------------------------------------------------------------------
+  def set_ajusts(duration, opacity, zoom, origin, destiny)
+    set_duration(duration)
+    set_opacity(opacity)
+    set_zoom(zoom)
+    set_y(origin, destiny)
+  end
+  #--------------------------------------------------------------------------
+  # * Set Icons List
+  #     icon : icon ID
+  #     type : icon type (0 = item, 1 = weapon, 2 = armor)
+  #--------------------------------------------------------------------------
+  def set_icon(type, icon)
+    return unless (type.is_a?(Numeric) or icon.is_a?(Numeric))
+    if @max_amount > 0
+      if @sprites["sprite"].size >= @max_amount
+        @limit_icons == true ? return : remove_first_icon
+      end
+    end
+    icon = icon.to_i.abs
+    type = type.to_i.abs
+    icon_id = nil
+    # Branch by type to try valid new icon
+    case type
+    when 0 # Item
+      icon_id = (icon.between?(1, $data_items.size - 1) ? icon : nil)
+    when 1 # Weapon
+      icon_id = (icon.between?(1, $data_weapons.size - 1) ? icon : nil)
+    when 2 # Armor
+      icon_id = (icon.between?(1, $data_armors.size - 1) ? icon : nil)
+    when 3 # Skill
+      icon_id = (icon.between?(1, $data_skills.size - 1) ? icon : nil)
+    else   # If is invalid, return
+      return
+    end
+    @duration.abs.to_i
+    # If new icon is valid
+    if icon_id != nil
+      # Set initial values to icons
+      @sprites["phase"].push(0)
+      @sprites["phase_wait"].push(0)
+      @sprites["end"].push(false)
+      @sprites["sprite"].push(Sprite.new)
+      @sprites["y"].push(@y)
+      @sprites["zoom"].push(@zoom)
+      @sprites["Tzoom"].push(@target_zoom)
+      @sprites["opacity"].push(@opacity)
+      @sprites["duration"].push(@duration)
+      # Get index of new icon
+      n = @sprites["sprite"].size - 1
+      sprite = @sprites["sprite"][n]
+      # Branch by type to draw icon bitmap
+      case type
+      when 0 # Item
+        data = $data_items[icon_id]
+        sprite.bitmap = (RPG::Cache.icon(data.icon_name))
+      when 1 # Weapon
+        data = $data_weapons[icon_id]
+        sprite.bitmap = (RPG::Cache.icon(data.icon_name))
+      when 2 # Armor
+        data = $data_armors[icon_id]
+        sprite.bitmap = (RPG::Cache.icon(data.icon_name))
+      when 3 # Skill
+        data = $data_skills[icon_id]
+        sprite.bitmap = (RPG::Cache.icon(data.icon_name))
+      end
+      # Set current icom coordinates, zoom and opacity
+      sprite.x = @x
+      sprite.y = @y
+      sprite.ox = sprite.bitmap.width / 2
+      sprite.oy = sprite.bitmap.height / 2
+      sprite.zoom_x = @zoom
+      sprite.zoom_y = @zoom
+      sprite.opacity = @opacity
+      # If initial duration is 0
+      if @duration == 0
+        sprite.y = @target_y
+        sprite.zoom_x = @target_zoom
+        sprite.zoom_y = @target_zoom
+        sprite.opacity = @target_opacity
+        @sprites["y"][n] = @target_y
+        @sprites["zoom"][n] = @target_zoom
+        @sprites["opacity"][n] = @target_opacity
+      end
+      # Update icon amount
+      @icon_amount = @sprites["sprite"].size
+      # If need reload icons moviments
+      if @reload == true
+        for i in 0...@sprites["sprite"].size
+          @sprites["phase"][i] = 0
+          @sprites["phase_wait"][i] = 0
+          @sprites["end"][i] = false
+          @sprites["duration"][i] = @duration
+        end
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update
+    update_icon_name
+    if @sprites["phase"].size > 0
+      end_icon_moviment_amount = 0
+      for i in 0...@sprites["phase"].size
+        # Ajust x position with new icons to display (always centralize)
+        if @sprites["phase"][i] < 3
+          z = @sprites["sprite"][i].zoom_x
+        else
+          z = @sprites["Tzoom"][i]
+        end
+        w1 = @sprites["sprite"][i].bitmap.width
+        x1 = (i * (w1 * z))
+        w2 = ((w1 / 2) * z)
+        x2 = @sprites["sprite"].size * w2
+        @sprites["sprite"][i].x = (320 - x2 + x1) + w2
+        # Branch by phase (per icon)
+        case @sprites["phase"][i]
+        when 0
+          @sprites["phase"][i] = 1
+        when 1
+          update_appear_moviment(i)
+        when 2
+          update_wait_display(i)
+        when 3
+          update_deappear_moviment(i)
+        end
+        # Increase amount of finished icons displays
+        if @sprites["end"][i] == true
+          end_icon_moviment_amount += 1
+        end
+      end
+      # Finalize display of icons calling end_method
+      if end_icon_moviment_amount == @sprites["sprite"].size
+        # Dispose all icons
+        for sprite in @sprites["sprite"]
+          sprite.bitmap.dispose
+          sprite.dispose
+        end
+        @end_display = true
+        # Clear all icon variables
+        clear
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Update Icon Appear Moviment (per icon)
+  #     index : icon index
+  #--------------------------------------------------------------------------
+  def update_appear_moviment(index)
+    y = @sprites["y"][index]
+    z = @sprites["zoom"][index]
+    o = @sprites["opacity"][index]
+    # Update y position, zoom and opacity
+    if @sprites["duration"][index] > 0
+      d = @sprites["duration"][index]
+      trgy = @target_y.to_f
+      trgz = @target_zoom.to_f
+      trgo = @target_opacity.to_f
+      # Get new values of y position, zoom and opacity
+      y = (y * (d - 1) + trgy) / d
+      z = (z * (d - 1) + trgz) / d
+      o = (o * (d - 1) + trgo) / d
+      # Set new values of y position, zoom and opacity
+      @sprites["y"][index] = y
+      @sprites["zoom"][index] = z
+      @sprites["opacity"][index] = o
+      # Update sprite with new values
+      @sprites["sprite"][index].y = y
+      @sprites["sprite"][index].zoom_x = z
+      @sprites["sprite"][index].zoom_y = z
+      @sprites["sprite"][index].opacity = o
+      @sprites["duration"][index] -= 1
+    end
+    # If is time out
+    if @sprites["duration"][index] == 0
+      @sprites["phase"][index] = 2
+      @sprites["phase_wait"][index] = 0
+      return
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Update Wait Display (per icon)
+  #     index : icon index
+  #--------------------------------------------------------------------------
+  def update_wait_display(index)
+    @sprites["phase_wait"][index] += 1
+    if @sprites["phase_wait"][index] == 40
+      @sprites["phase_wait"][index] = 0
+      @sprites["phase"][index] = 3
+      @sprites["duration"][index] = 30
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Update Icon Deappear Moviment (per icon)
+  #     index : icon index
+  #--------------------------------------------------------------------------
+  def update_deappear_moviment(index)
+    z = @sprites["zoom"][index]
+    o = @sprites["opacity"][index]
+    # Update zoom and opacity
+    if @sprites["duration"][index] >= 1
+      d = @sprites["duration"][index]
+      z = (z * (d - 1) + 0) / d
+      o = (o * (d - 1) + 0) / d
+      # Set new values of zoom and opacity
+      @sprites["zoom"][index] = z
+      @sprites["opacity"][index] = o
+      # Update sprite with new values
+      @sprites["sprite"][index].zoom_x = z
+      @sprites["sprite"][index].zoom_y = z
+      @sprites["sprite"][index].opacity = o
+      @sprites["duration"][index] -= 1
+    end
+    # If is time out
+    if @sprites["duration"][index] == 0
+      @sprites["phase"][index] = 4
+      @sprites["end"][index] = true
+      return
+    end
+  end
+end
+
+#==============================================================================
+# ** IconsName_Displayer
+#------------------------------------------------------------------------------
+#  This class performs to print several icons (items, weapons, armors or skills)
+#==============================================================================
+
+class IconsName_Displayer
+  #--------------------------------------------------------------------------
+  # * Initialize Icon Name (not included in @sprite hash)
+  #--------------------------------------------------------------------------
+  def initialize_icon_name
+    @name = Sprite.new
+    @name.bitmap = Bitmap.new(320, 32)
+    @name.bitmap.font.name = "Charriot Deluxe"
+    @name.bitmap.font.size = 24
+    @name.x = 320
+    @name.y = 440
+    @name.ox = @name.bitmap.width / 2
+    @name.oy = @name.bitmap.height / 2
+    @name.opacity = 0
+    @fade_out = 0
+    @fade_in = 0
+    @colors = []
+    # Make square bitmap colors
+    for i in 1..5
+      @colors.push(Color.new(8, 10, 20, i * 48))
+    end
+    # Make name colors
+    @colors.push(Color.new( 64,  64,  80, 255))
+    @colors.push(Color.new(252, 252, 252, 255))
+  end
+  #--------------------------------------------------------------------------
+  # * Draw Name Sprite
+  #     icon_type : item, weapon, armor or skill
+  #     icon_id   : good ID
+  #--------------------------------------------------------------------------
+  def draw_name(icon_type, icon_id)
+    return unless (icon_type.is_a?(Numeric) or icon_id.is_a?(Numeric))
+    @limit_icons == true ? return : nil
+    icon_id = icon_id.to_i.abs
+    icon_type = icon_type.to_i.abs
+    case icon_type
+    when 0
+      data = $data_items[icon_id]
+    when 1
+      data = $data_weapons[icon_id]
+    when 2
+      data = $data_armors[icon_id]
+    when 3
+      data = $data_skills[icon_id]
+    else
+      return
+    end
+    # Return if data is invalid
+    if data == nil
+      return
+    end
+    # Remake name sprite if is disposed before
+    if @name.disposed?
+      @name = Sprite.new
+    end
+    # Remake bitmap if is disposed before
+    if @name.bitmap.disposed?
+      @name.bitmap = Bitmap.new(320, 32)
+    end
+    @name.bitmap.clear
+    ws = @name.bitmap.width
+    hs = @name.bitmap.height
+    # Print rectangle with Colors
+    @name.bitmap.fill_rect(   0,  0,  2, hs, @colors[0])
+    @name.bitmap.fill_rect(   2,  0,  2, hs, @colors[1])
+    @name.bitmap.fill_rect(   4,  0,  2, hs, @colors[2])
+    @name.bitmap.fill_rect(   6,  0,  2, hs, @colors[3])
+    @name.bitmap.fill_rect(   8,  0, ws, hs, @colors[4])
+    @name.bitmap.fill_rect(ws-8,  0,  2, hs, @colors[3])
+    @name.bitmap.fill_rect(ws-6,  0,  2, hs, @colors[2])
+    @name.bitmap.fill_rect(ws-4,  0,  2, hs, @colors[1])
+    @name.bitmap.fill_rect(ws-2,  0,  2, hs, @colors[0])
+    # Shadow of text
+    @name.bitmap.font.color = @colors[5]
+    @name.bitmap.draw_text(-1,  0, ws, hs, data.name, 1)
+    @name.bitmap.draw_text(+1,  0, ws, hs, data.name, 1)
+    # Draw item
+    @name.bitmap.font.color = @colors[6]
+    @name.bitmap.draw_text(@name.bitmap.rect, data.name, 1)
+    # Reset fades if is visible again
+    @fade_in = 60
+    @fade_out = 30
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update for Name Sprite
+  #--------------------------------------------------------------------------
+  def update_icon_name
+    # Fade in
+    if @fade_in > 0
+      @fade_in -= 1
+      @name.opacity += 96
+    end
+    # Fade out
+    if (@fade_in == 0 and @fade_out > 0)
+      @name.opacity = (@name.opacity * (@fade_out - 1) + 0) / @fade_out
+      @fade_out -= 1
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Dispose Only Name
+  #--------------------------------------------------------------------------
+  def dispose_icon_name
+    if @name.bitmap != nil
+      @name.bitmap.dispose
+    end
+    @name.dispose
+  end
+  #--------------------------------------------------------------------------
+  # * Dispose Only Icons
+  #--------------------------------------------------------------------------
+  def dispose_icons
+    if @sprites["sprite"].size > 0
+      # Dispose all icons
+      for sprite in @sprites["sprite"]
+        if sprite.bitmap != nil
+          sprite.bitmap.dispose
+        end
+        sprite.dispose
+      end
+    end
+    clear
+  end
+  #--------------------------------------------------------------------------
+  # * Dispose Icons and Name
+  #--------------------------------------------------------------------------
+  def dispose
+    dispose_icons
+    dispose_icon_name
+  end
+end
