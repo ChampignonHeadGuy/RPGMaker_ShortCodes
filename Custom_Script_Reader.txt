@@ -1,0 +1,104 @@
+#==============================================================================
+# ** Script_Reader
+#------------------------------------------------------------------------------
+#  This class performs to read custom script from text files.
+#  Work only in ".txt" or ".rb" formats. Work like "call script" event command.
+#  Usable to read long scripts of text files thats are impossibles to write
+#  in call script command.
+#==============================================================================
+
+class Script_Reader
+  #--------------------------------------------------------------------------
+  # * Object Initialization
+  #--------------------------------------------------------------------------
+  def initialize
+    clear
+  end
+  #--------------------------------------------------------------------------
+  # * Clear
+  #--------------------------------------------------------------------------
+  def clear
+    @full_script = []
+    @slots = {}
+  end
+  #--------------------------------------------------------------------------
+  # * Store Custom Script
+  #     slot_id : the slot ID
+  #--------------------------------------------------------------------------
+  def store(slot_id)
+    if slot_id.is_a?(Numeric)
+      if slot_id >= 0 and @full_script.size > 0
+        @slots[slot_id] = @full_script.clone
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Erase Custom Script
+  #     slot_id : the slot ID
+  #--------------------------------------------------------------------------
+  def erase(slot_id)
+    if slot_id.is_a?(Numeric)
+      if slot_id >= 0
+        @slots[slot_id] = nil
+        @slots.delete(slot_id)
+      end
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Read Custom Scripts
+  #     filename  : script filename
+  #     slot_id   : the slot's ID (to memorize script)
+  #     only_read : flag (return result or true)
+  #--------------------------------------------------------------------------
+  def read(filename, slot_id = nil, only_read = false)
+    # Clear script array and initialize script string
+    @full_script = []
+    script = sufix = ""
+    result = true
+    # If filename include sufix, remove 
+    filename.sub!(/.txt/, "")
+    filename.sub!(/.rb/, "")
+    # Get valid sufix (if filename exist)
+    sufix = (FileTest.exist?("CustomScripts/#{filename}.txt") ? ".txt" :
+             FileTest.exist?("CustomScripts/#{filename}.rb")  ? ".rb"  : "")
+    # If sufix isn't empty
+    if sufix != ""
+      # If script filename exist
+      if FileTest.exist?("CustomScripts/#{filename + sufix}")
+        @full_script = IO.readlines('CustomScripts/' + filename + sufix)
+        # If filename is valid
+        if @full_script != []
+          # Memorize script if is necessary
+          slot_id.is_a?(Numeric) ? store(slot_id) : true
+          # Add all lines to script
+          @full_script.each {|line| script += line + "\n"}
+          # Evaluation
+          result = eval(script)
+        end
+      end
+    end
+    # End method
+    return (only_read == true ? true : result)
+  end
+  #--------------------------------------------------------------------------
+  # * Read Custom Script (Stored)
+  #     slot_id   : the slot's ID
+  #     only_read : flag (return result or true)
+  #--------------------------------------------------------------------------
+  def read_slot(slot_id, only_read = false)
+    if slot_id.is_a?(Numeric)
+      if slot_id >= 0
+        if @slots[slot_id.to_i] != nil
+          # Initialize script
+          script = ""
+          # Add all lines to script
+          @slots[slot_id.to_i].each {|line| script += line + "\n"}
+          # Evaluation
+          result = eval(script)
+        end
+      end
+    end
+    # End method
+    return (only_read == true ? true : result)
+  end
+end
