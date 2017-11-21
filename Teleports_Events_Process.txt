@@ -1,0 +1,122 @@
+#==============================================================================
+# ** Game_Temp (Teleport Methods)
+#------------------------------------------------------------------------------
+#  This class handles temporary data that is not included with save data.
+#  Refer to "$game_temp" for the instance of this class.
+#==============================================================================
+
+class Game_Temp
+  #--------------------------------------------------------------------------
+  # * Regular teleport (Work like original teleport method (Interpreter))
+  #     map_id : map ID destination
+  #     x      : new x position
+  #     y      : new y position
+  #     dir    : direction for destination
+  #     name   : transition name
+  #     trans  : transition flag
+  #--------------------------------------------------------------------------
+  def teleport(map_id, x, y, dir=0, name="", trans=true)
+    directions_check = [2, 4, 6, 8]
+    # Check if filename exist
+    if FileTest.exist?(sprintf("Data/Map%03d.rxdata", map_id)) 
+      map_check = load_data(sprintf("Data/Map%03d.rxdata", map_id))
+      @player_new_map_id = map_id
+      @player_new_x = x
+      @player_new_y = y
+      @player_new_direction = dir
+      if not directions_check.include?(@player_new_direction)
+        # Set last direction of player
+        @player_new_direction = $game_player.direction
+      end
+      @player_new_x %= map_check.width
+      @player_new_y %= map_check.height
+      # Teleport if $scene is Scene_Map: regular teleport
+      if $scene.is_a?(Scene_Map)
+        @transition_processing = (trans == true)
+        @transition_name = name
+        @transition_processing == true ? Graphics.freeze : nil
+        # Call scene teleport process
+        $scene.transfer_player
+      # Teleport if another scenes: setup map destination
+      else
+        $game_map.setup(@player_new_map_id)
+        $game_player.moveto(@player_new_x, @player_new_y)
+        $game_player.straighten
+        @map_bgm = map_check.bgm
+        @map_bgs = map_check.bgs
+      end
+    end
+    # End method
+    return true
+  end
+  #--------------------------------------------------------------------------
+  # * Local teleport (Usable in Internal Maps: houses, caves, etc.)
+  #     warp_id : destination ID (use substring "WP[n] or \Warp[n]")
+  #     dir     : direction for destination
+  #     name    : transition name
+  #     trans   : transition flag
+  #--------------------------------------------------------------------------
+  def teleport_to(warp_id, dir = 0, name = "", trans = true)
+    return unless warp_id.is_a?(Numeric)
+    directions_check = [2, 4, 6, 8] ;n = nil
+    destination_id = Integer(warp_id.abs)
+    # Check in all events of current map
+    for i in $game_map.events.keys
+      event = $game_map.events[i]
+      # Check event name (when name include substring "WP[n]")
+      event.name.gsub(/[WwPp]\[([0-9]+)\]/) {n = $1.to_i}
+      # Check event name (when name include substring "\Warp[n]")
+      event.name.gsub(/\\[WwAaRrPp]\[([0-9]+)\]/) {n = $1.to_i}
+      # Compare with warp ID
+      if destination_id == n
+        @player_new_direction = dir
+        if not directions_check.include?(@player_new_direction)
+          # Set last direction of player
+          @player_new_direction = $game_player.direction
+        end
+        # Compare direction (not overlap event destination)
+        d = @player_new_direction
+        @player_new_x = event.x + (d == 6 ? 1 : d == 4 ? -1 : 0)
+        @player_new_y = event.y + (d == 2 ? 1 : d == 8 ? -1 : 0)
+        # Set current map ID to teleport
+        @player_new_map_id = $game_map.map_id
+        @transition_processing = (trans == true)
+        @transition_name = name
+        @transition_processing == true ? Graphics.freeze : nil
+        # Call scene teleport process
+        $scene.transfer_player
+        # BORT loop
+        break
+      end
+    end
+    # End method
+    return true
+  end
+  #--------------------------------------------------------------------------
+  # * Set Destination Teleport from Event Name
+  #--------------------------------------------------------------------------
+  def place_destination(overlap = true)
+    check = false
+    for i in $game_map.events.keys
+      # Check event name to find place destination
+      event = $game_map.events[i]
+      event.name.gsub(/TeleportPlace/) {check = true}
+      event.name.gsub(/Ponto de Teleporte/) {check = true}
+      if check
+        d = $game_player.direction
+        dx = (d == 6 ? 1 : d == 4 ? -1 : 0)
+        dy = (d == 2 ? 1 : d == 8 ? -1 : 0)
+        dxol = (overlap == true ? 0 : dx)
+        dyol = (overlap == true ? 0 : dy)
+        @player_new_x = event.x + dxol
+        @player_new_y = event.y + dyol
+        # Move player to event x coordinate and y coordinate
+        $game_player.moveto(@player_new_x, @player_new_y)
+        # BORT loop
+        break
+      end
+    end
+    # End method
+    return true
+  end
+end
